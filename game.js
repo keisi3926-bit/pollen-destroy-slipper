@@ -5,6 +5,7 @@
   const ctx = canvas.getContext("2d");
   const slowButton = document.getElementById("slowButton");
   const spellButton = document.getElementById("spellButton");
+  const menuButton = document.getElementById("menuButton");
   const updatePanel = document.querySelector(".update-panel");
   const updateToggle = document.getElementById("updateToggle");
   const updateBody = document.getElementById("updateBody");
@@ -24,6 +25,65 @@
     return dx * dx + dy * dy;
   };
   const PORTRAIT_BASE = "assets/characters/";
+  const INITIAL_CONTINUES = 3;
+  const CHECKPOINTS = [
+    { id: 0, name: "STAGE START", time: 0 },
+    { id: 1, name: "前半終了", time: 1150 },
+    { id: 2, name: "後半開始", time: 2300 },
+    { id: 3, name: "ボス直前", time: 3380 },
+  ];
+  const SCORE_VALUES = {
+    enemySmall: 100,
+    enemyBig: 300,
+    bulletCancel: 10,
+    normalBreak: 5000,
+    spellBreak: 10000,
+    noMissBreak: 20000,
+    bossDefeat: 30000,
+    stageClear: 50000,
+    bossDamage: 8,
+  };
+  const EXTEND_THRESHOLDS = [30000, 80000, 150000];
+  const DIFFICULTY_CONFIG = {
+    easy: {
+      label: "EASY",
+      bulletSpeedMultiplier: 0.7,
+      bulletCountMultiplier: 0.55,
+      enemyHpMultiplier: 0.75,
+      bossHpMultiplier: 0.78,
+      fireIntervalMultiplier: 1.55,
+      spawnMultiplier: 0.65,
+      safeGapMultiplier: 1.35,
+      initialLives: 3,
+    },
+    normal: {
+      label: "NORMAL",
+      bulletSpeedMultiplier: 0.9,
+      bulletCountMultiplier: 0.8,
+      enemyHpMultiplier: 0.9,
+      bossHpMultiplier: 0.95,
+      fireIntervalMultiplier: 1.25,
+      spawnMultiplier: 0.8,
+      safeGapMultiplier: 1.15,
+      initialLives: 3,
+    },
+    hard: {
+      label: "HARD",
+      bulletSpeedMultiplier: 1.18,
+      bulletCountMultiplier: 1.2,
+      enemyHpMultiplier: 1.15,
+      bossHpMultiplier: 1.2,
+      fireIntervalMultiplier: 0.95,
+      spawnMultiplier: 1.05,
+      safeGapMultiplier: 1.0,
+      initialLives: 3,
+    },
+  };
+
+  const addScore = (game, amount) => {
+    game.score.add(amount);
+    game.checkExtends();
+  };
 
   class UpdateManager {
     constructor() {
@@ -161,8 +221,6 @@
   class GameState {
     constructor() {
       this.mode = "title";
-      this.score = 0;
-      this.lives = 3;
       this.stageName = "一面 春の花粉参道";
       this.time = 0;
       this.shake = 0;
@@ -171,11 +229,9 @@
       this.bossNameTimer = 0;
     }
 
-    resetRun() {
+    resetRun(startTime = 0) {
       this.mode = "stage";
-      this.score = 0;
-      this.lives = 3;
-      this.time = 0;
+      this.time = startTime;
       this.shake = 0;
       this.message = "一面開始";
       this.messageTimer = 120;
@@ -185,6 +241,172 @@
     showMessage(text, frames = 120) {
       this.message = text;
       this.messageTimer = frames;
+    }
+  }
+
+  class DifficultyManager {
+    constructor() {
+      this.current = "normal";
+    }
+
+    set(key) {
+      if (DIFFICULTY_CONFIG[key]) this.current = key;
+    }
+
+    get config() {
+      return DIFFICULTY_CONFIG[this.current];
+    }
+
+    get label() {
+      return this.config.label;
+    }
+
+    next(delta) {
+      const keys = Object.keys(DIFFICULTY_CONFIG);
+      const index = keys.indexOf(this.current);
+      this.current = keys[(index + delta + keys.length) % keys.length];
+    }
+
+    scaleCount(base) {
+      return Math.max(1, Math.round(base * this.config.bulletCountMultiplier));
+    }
+
+    scaleSpeed(base) {
+      return base * this.config.bulletSpeedMultiplier;
+    }
+
+    scaleFireInterval(base) {
+      return Math.max(1, Math.round(base * this.config.fireIntervalMultiplier));
+    }
+  }
+
+  class ScoreManager {
+    constructor(game) {
+      this.game = game;
+      this.value = 0;
+      this.extendIndex = 0;
+    }
+
+    reset() {
+      this.value = 0;
+      this.extendIndex = 0;
+    }
+
+    add(amount) {
+      this.value += Math.max(0, Math.floor(amount));
+    }
+
+    reduceForContinue() {
+      this.value = Math.floor(this.value * 0.8);
+    }
+  }
+
+  class LifeManager {
+    constructor(game) {
+      this.game = game;
+      this.lives = 3;
+    }
+
+    reset() {
+      this.lives = this.game.difficulty.config.initialLives;
+    }
+
+    loseLife() {
+      this.lives -= 1;
+      return this.lives > 0;
+    }
+
+    extend() {
+      this.lives += 1;
+    }
+  }
+
+  class CheckpointManager {
+    constructor() {
+      this.current = 0;
+    }
+
+    reset() {
+      this.current = 0;
+    }
+
+    updateByTime(time) {
+      for (const cp of CHECKPOINTS) {
+        if (time >= cp.time && cp.id > this.current) this.current = cp.id;
+      }
+    }
+
+    get currentPoint() {
+      return CHECKPOINTS.find((cp) => cp.id === this.current) || CHECKPOINTS[0];
+    }
+  }
+
+  class SaveManager {
+    constructor() {
+      this.key = "pollenDestroySlipperSave";
+      this.data = this.load();
+    }
+
+    defaultData() {
+      return {
+        easy: { highScore: 0, maxCheckpoint: 0, cleared: false, continues: 0 },
+        normal: { highScore: 0, maxCheckpoint: 0, cleared: false, continues: 0 },
+        hard: { highScore: 0, maxCheckpoint: 0, cleared: false, continues: 0 },
+      };
+    }
+
+    load() {
+      try {
+        return { ...this.defaultData(), ...JSON.parse(localStorage.getItem(this.key) || "{}") };
+      } catch {
+        return this.defaultData();
+      }
+    }
+
+    saveRun(difficulty, score, checkpoint, cleared, continues) {
+      const current = this.data[difficulty] || this.defaultData()[difficulty];
+      current.highScore = Math.max(current.highScore || 0, score);
+      current.maxCheckpoint = Math.max(current.maxCheckpoint || 0, checkpoint);
+      current.cleared = Boolean(current.cleared || cleared);
+      current.continues = Math.max(current.continues || 0, continues);
+      this.data[difficulty] = current;
+      localStorage.setItem(this.key, JSON.stringify(this.data));
+    }
+  }
+
+  class MenuManager {
+    constructor(items = []) {
+      this.items = items;
+      this.index = 0;
+      this.confirm = null;
+    }
+
+    setItems(items) {
+      this.items = items;
+      this.index = 0;
+      this.confirm = null;
+      this.skipDisabled(1);
+    }
+
+    move(delta) {
+      if (this.confirm) {
+        this.confirm.choice = this.confirm.choice === 0 ? 1 : 0;
+        return;
+      }
+      this.index = (this.index + delta + this.items.length) % this.items.length;
+      this.skipDisabled(delta || 1);
+    }
+
+    skipDisabled(delta) {
+      let guard = 0;
+      while (this.items[this.index]?.disabled && guard < this.items.length) {
+        this.index = (this.index + delta + this.items.length) % this.items.length;
+        guard += 1;
+      }
+    }
+
+    selected() {
+      return this.items[this.index];
     }
   }
 
@@ -243,11 +465,14 @@
 
     hit(game) {
       if (this.invincible > 0 || game.state.mode !== "stage") return;
-      game.state.lives -= 1;
+      const hadLives = game.life.loseLife();
+      game.missedDuringCard = true;
       game.state.shake = 18;
       this.invincible = 130;
+      game.cancelEnemyBullets(true);
       game.spawnBurst(this.x, this.y, "#eafcff", 18);
-      if (game.state.lives <= 0) game.state.mode = "gameover";
+      game.state.showMessage(hadLives ? "MISS - 復帰！" : "GAME OVER", 90);
+      if (!hadLives) game.openGameOverMenu();
     }
 
     draw(ctx, t) {
@@ -358,10 +583,11 @@
         this.y += 1.55;
       }
 
-      const rate = this.type === "big" ? 58 : 86;
-      if (this.age % rate === 0) {
+      const rate = game.difficulty.scaleFireInterval(this.type === "big" ? 92 : 132);
+      if (this.age > 70 && this.age % rate === 0) {
         const a = Math.atan2(game.player.y - this.y, game.player.x - this.x);
-        game.enemyBullets.push(new Bullet(this.x, this.y, Math.cos(a) * 2.1, Math.sin(a) * 2.1, 6, "enemy", "#f4c64e"));
+        const speed = game.difficulty.scaleSpeed(this.type === "big" ? 1.85 : 1.65);
+        game.enemyBullets.push(new Bullet(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f4c64e"));
       }
     }
 
@@ -424,48 +650,57 @@
 
   const BOSS_PATTERNS = {
     normalSpread(boss, game, card) {
-      if (card.age % 72 !== 1) return;
-      for (let i = 0; i < 26; i += 1) {
-        const a = (i / 26) * TAU + card.age * 0.012;
-        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * 1.42, Math.sin(a) * 1.42, 6, "enemy", "#f1bf45"));
+      if (card.age % game.difficulty.scaleFireInterval(82) !== 1) return;
+      const count = game.difficulty.scaleCount(22);
+      for (let i = 0; i < count; i += 1) {
+        const a = (i / count) * TAU + card.age * 0.012;
+        const speed = game.difficulty.scaleSpeed(1.22);
+        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f1bf45"));
       }
     },
 
     yellowDance(boss, game, card) {
-      if (card.age % 34 !== 1) return;
-      const gap = Math.floor(card.age / 34) % 16;
-      for (let i = 0; i < 32; i += 1) {
-        if (Math.abs(i - gap) <= 1 || Math.abs(i - gap - 32) <= 1) continue;
-        const a = (i / 32) * TAU + card.age * 0.025;
-        const speed = 1.0 + (i % 2) * 0.2;
+      if (card.age % game.difficulty.scaleFireInterval(42) !== 1) return;
+      const count = game.difficulty.scaleCount(28);
+      const gap = Math.floor(card.age / 42) % count;
+      const gapWidth = Math.max(2, Math.round(2 * game.difficulty.config.safeGapMultiplier));
+      for (let i = 0; i < count; i += 1) {
+        if (Math.abs(i - gap) <= 1 || Math.abs(i - gap - count) <= 1) continue;
+        const wrapDiff = Math.abs(Math.atan2(Math.sin((i - gap) / count * TAU), Math.cos((i - gap) / count * TAU)));
+        if (wrapDiff < (gapWidth / count) * TAU) continue;
+        const a = (i / count) * TAU + card.age * 0.025;
+        const speed = game.difficulty.scaleSpeed(0.92 + (i % 2) * 0.18);
         game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 5, "enemy", "#f4d34a"));
       }
     },
 
     aimedPollen(boss, game, card) {
-      if (card.age % 38 !== 1) return;
+      if (card.age % game.difficulty.scaleFireInterval(54) !== 1) return;
       const base = Math.atan2(game.player.y - boss.y, game.player.x - boss.x);
-      for (let i = -2; i <= 2; i += 1) {
+      const side = game.difficulty.current === "easy" ? 1 : game.difficulty.current === "normal" ? 1 : 2;
+      for (let i = -side; i <= side; i += 1) {
         const a = base + i * 0.16;
-        game.enemyBullets.push(new Bullet(boss.x, boss.y + 8, Math.cos(a) * 2.1, Math.sin(a) * 2.1, 6, "enemy", "#f0bd42"));
+        const speed = game.difficulty.scaleSpeed(1.75);
+        game.enemyBullets.push(new Bullet(boss.x, boss.y + 8, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f0bd42"));
       }
     },
 
     needleRain(boss, game, card) {
-      if (card.age % 8 !== 1) return;
+      if (card.age % game.difficulty.scaleFireInterval(13) !== 1) return;
       const x = 30 + ((card.age * 47) % (W - 60));
       const drift = card.age % 56 < 12 ? (boss.x < W / 2 ? 0.7 : -0.7) : 0;
-      game.enemyBullets.push(new Bullet(x, -16, drift, 2.7, 4, "enemy", "#d7c64a", { shape: "needle" }));
-      if (card.age % 40 === 1) {
-        game.enemyBullets.push(new Bullet(W - x, -16, drift * -0.8, 2.35, 4, "enemy", "#f1de65", { shape: "needle" }));
+      game.enemyBullets.push(new Bullet(x, -16, drift, game.difficulty.scaleSpeed(2.15), 4, "enemy", "#d7c64a", { shape: "needle" }));
+      if (game.difficulty.current !== "easy" && card.age % 52 === 1) {
+        game.enemyBullets.push(new Bullet(W - x, -16, drift * -0.8, game.difficulty.scaleSpeed(1.95), 4, "enemy", "#f1de65", { shape: "needle" }));
       }
     },
 
     wavePollen(boss, game, card) {
-      if (card.age % 17 !== 1) return;
-      for (let i = -3; i <= 3; i += 1) {
-        game.enemyBullets.push(new Bullet(boss.x, boss.y + 20, i * 0.5, 2.12, 6, "enemy", "#ff9b45", {
-          wave: 1.18,
+      if (card.age % game.difficulty.scaleFireInterval(25) !== 1) return;
+      const side = game.difficulty.current === "easy" ? 2 : 3;
+      for (let i = -side; i <= side; i += 1) {
+        game.enemyBullets.push(new Bullet(boss.x, boss.y + 20, i * 0.42, game.difficulty.scaleSpeed(1.82), 6, "enemy", "#ff9b45", {
+          wave: game.difficulty.current === "easy" ? 0.75 : 1.05,
           phase: i * 0.9 + card.age * 0.03,
         }));
       }
@@ -478,15 +713,17 @@
     },
 
     poorVisibility(boss, game, card) {
-      if (card.age % 46 !== 1) return;
-      for (let i = 0; i < 18; i += 1) {
-        const a = (i / 18) * TAU + card.age * 0.01;
-        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * 1.0, Math.sin(a) * 1.0, 6, "enemy", "rgba(242, 199, 79, 0.62)"));
+      if (card.age % game.difficulty.scaleFireInterval(58) !== 1) return;
+      const count = game.difficulty.scaleCount(14);
+      for (let i = 0; i < count; i += 1) {
+        const a = (i / count) * TAU + card.age * 0.01;
+        const speed = game.difficulty.scaleSpeed(0.9);
+        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "rgba(242, 199, 79, 0.62)"));
       }
     },
 
     cedarBlockade(boss, game, card) {
-      if (card.age % 128 !== 1) return;
+      if (card.age % game.difficulty.scaleFireInterval(150) !== 1) return;
       const safeSlot = Math.floor((card.age / 128) % 4);
       for (let i = 0; i < 5; i += 1) {
         if (i === safeSlot) continue;
@@ -496,9 +733,9 @@
     },
 
     infiniteScatter(boss, game, card) {
-      if (card.age % 46 === 1) BOSS_PATTERNS.yellowDance(boss, game, card);
-      if (card.age % 24 === 1) BOSS_PATTERNS.wavePollen(boss, game, card);
-      if (card.age % 14 === 1) BOSS_PATTERNS.needleRain(boss, game, card);
+      if (card.age % game.difficulty.scaleFireInterval(60) === 1) BOSS_PATTERNS.yellowDance(boss, game, card);
+      if (card.age % game.difficulty.scaleFireInterval(36) === 1) BOSS_PATTERNS.wavePollen(boss, game, card);
+      if (card.age % game.difficulty.scaleFireInterval(24) === 1) BOSS_PATTERNS.needleRain(boss, game, card);
     },
   };
 
@@ -571,6 +808,7 @@
     beginCurrentCard(game) {
       this.currentCard = this.spellCards[this.cardIndex];
       if (!this.currentCard) return;
+      this.currentCard.maxHp = Math.max(1, Math.round(this.currentCard.maxHp * game.difficulty.config.bossHpMultiplier));
       this.currentCard.start(this, game);
       this.hp = this.currentCard.hp;
       this.maxHp = this.currentCard.maxHp;
@@ -582,6 +820,9 @@
 
     nextCard(game) {
       if (!this.currentCard) return;
+      addScore(game, this.currentCard.isSpell ? SCORE_VALUES.spellBreak : SCORE_VALUES.normalBreak);
+      if (!game.missedDuringCard) addScore(game, SCORE_VALUES.noMissBreak);
+      game.missedDuringCard = false;
       this.currentCard.end(this, game);
       this.cardIndex += 1;
       if (this.cardIndex >= this.spellCards.length) {
@@ -595,7 +836,7 @@
       if (!this.currentCard || this.defeated || !this.entered) return;
       this.currentCard.hp -= amount;
       this.hp = this.currentCard.hp;
-      game.state.score += Math.max(1, Math.floor(amount * 8));
+      addScore(game, amount * SCORE_VALUES.bossDamage);
       if (this.currentCard.hp <= 0) this.nextCard(game);
     }
 
@@ -893,6 +1134,14 @@
   class Game {
     constructor() {
       this.state = new GameState();
+      this.difficulty = new DifficultyManager();
+      this.score = new ScoreManager(this);
+      this.life = new LifeManager(this);
+      this.checkpoints = new CheckpointManager();
+      this.save = new SaveManager();
+      this.titleMenu = new MenuManager(["START GAME", "DIFFICULTY", "HOW TO PLAY", "HIGH SCORE"].map((label) => ({ label })));
+      this.pauseMenu = new MenuManager();
+      this.gameOverMenu = new MenuManager();
       this.player = new Player();
       this.enemies = [];
       this.playerBullets = [];
@@ -904,6 +1153,10 @@
       this.playerSpellTimer = 0;
       this.playerSpellCutin = 0;
       this.playerSpellCooldown = 0;
+      this.continuesLeft = INITIAL_CONTINUES;
+      this.continueCount = 0;
+      this.missedDuringCard = false;
+      this.titlePanel = "main";
       this.dialogue = new DialogueManager(DIALOGUE_SCENES, PORTRAIT_BASE);
       this.lastTime = 0;
       this.input = {
@@ -918,11 +1171,18 @@
         touchY: H - 90,
       };
       this.bindInput();
-      this.startDialogue("scene_intro");
     }
 
-    start() {
-      this.state.resetRun();
+    start(fromCheckpoint = false, keepScore = false) {
+      const startTime = fromCheckpoint ? this.checkpoints.currentPoint.time : 0;
+      const preservedSpellCount = this.playerSpellCount;
+      this.state.resetRun(startTime);
+      if (!keepScore) {
+        this.score.reset();
+        this.checkpoints.reset();
+        this.continuesLeft = INITIAL_CONTINUES;
+        this.continueCount = 0;
+      }
       this.player.reset();
       this.enemies = [];
       this.playerBullets = [];
@@ -930,10 +1190,30 @@
       this.particles = [];
       this.lasers = [];
       this.boss = null;
-      this.playerSpellCount = 3;
+      this.playerSpellCount = keepScore ? preservedSpellCount : 3;
       this.playerSpellTimer = 0;
       this.playerSpellCutin = 0;
       this.playerSpellCooldown = 0;
+      this.missedDuringCard = false;
+      this.life.reset();
+      if (keepScore && fromCheckpoint) {
+        this.life.lives = Math.max(1, this.life.lives);
+      }
+      this.state.showMessage(fromCheckpoint ? `${this.checkpoints.currentPoint.name} から再開` : "一面開始", 120);
+      if (!fromCheckpoint) this.startDialogue("scene_intro");
+    }
+
+    returnToTitle() {
+      this.state.mode = "title";
+      this.titlePanel = "main";
+      this.dialogue.active = false;
+      this.enemies = [];
+      this.playerBullets = [];
+      this.enemyBullets = [];
+      this.lasers = [];
+      this.boss = null;
+      this.playerSpellTimer = 0;
+      this.state.time = 0;
     }
 
     startDialogue(sceneName, onComplete = null) {
@@ -944,13 +1224,28 @@
 
     bindInput() {
       window.addEventListener("keydown", (e) => {
-        if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Shift", "x", "X"].includes(e.key)) e.preventDefault();
+        if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Shift", "x", "X", "Escape", "Enter"].includes(e.key)) e.preventDefault();
+        if (this.state.mode === "title") {
+          this.handleTitleKey(e.key);
+          return;
+        }
+        if (this.state.mode === "paused") {
+          this.handlePauseKey(e.key);
+          return;
+        }
+        if (this.state.mode === "gameover") {
+          this.handleGameOverKey(e.key);
+          return;
+        }
         if (this.dialogue.active) {
           if (e.key === "Enter") this.dialogue.skip();
           if (e.key === "z" || e.key === "Z" || e.key === " ") this.dialogue.advance();
           return;
         }
-        if (this.state.mode !== "stage" && (e.key === "z" || e.key === "Z" || e.key === " " || e.key === "Enter")) this.start();
+        if (e.key === "Escape" || e.key === "p" || e.key === "P") {
+          this.openPauseMenu();
+          return;
+        }
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") this.input.left = true;
         if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") this.input.right = true;
         if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") this.input.up = true;
@@ -970,11 +1265,12 @@
       });
 
       canvas.addEventListener("pointerdown", (e) => {
+        if (this.handleCanvasTap(e)) return;
         if (this.dialogue.active) {
           this.dialogue.advance();
           return;
         }
-        if (this.state.mode !== "stage") this.start();
+        if (this.state.mode !== "stage") return;
         this.input.touchActive = true;
         this.setTouch(e);
         canvas.setPointerCapture(e.pointerId);
@@ -1016,12 +1312,171 @@
         }
         this.activatePlayerSpell();
       });
+
+      menuButton.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        if (this.state.mode === "stage") this.openPauseMenu();
+        else if (this.state.mode === "paused") this.resumeFromPause();
+      });
+    }
+
+    handleTitleKey(key) {
+      if (key === "ArrowUp" || key === "w" || key === "W") this.titleMenu.move(-1);
+      if (key === "ArrowDown" || key === "s" || key === "S") this.titleMenu.move(1);
+      if (this.titleMenu.selected()?.label === "DIFFICULTY" && (key === "ArrowLeft" || key === "a" || key === "A")) this.difficulty.next(-1);
+      if (this.titleMenu.selected()?.label === "DIFFICULTY" && (key === "ArrowRight" || key === "d" || key === "D")) this.difficulty.next(1);
+      if (key === "z" || key === "Z" || key === " " || key === "Enter") this.activateTitleItem();
+      if (key === "Escape") this.titlePanel = "main";
+    }
+
+    activateTitleItem() {
+      const label = this.titleMenu.selected()?.label;
+      if (label === "START GAME") this.start(false, false);
+      if (label === "DIFFICULTY") this.difficulty.next(1);
+      if (label === "HOW TO PLAY") this.titlePanel = this.titlePanel === "how" ? "main" : "how";
+      if (label === "HIGH SCORE") this.titlePanel = this.titlePanel === "score" ? "main" : "score";
+    }
+
+    openPauseMenu() {
+      if (this.state.mode !== "stage" || this.dialogue.active) return;
+      this.state.mode = "paused";
+      this.pauseMenu.setItems([
+        { label: "RESUME", action: "resume" },
+        { label: "RESTART", action: "restart", confirm: "ステージを最初からやり直しますか？" },
+        { label: "RETRY CHECKPOINT", action: "checkpoint", confirm: "最後のチェックポイントからやり直しますか？" },
+        { label: "TITLE", action: "title", confirm: "タイトル画面へ戻りますか？現在の進行は失われます" },
+      ]);
+    }
+
+    resumeFromPause() {
+      if (this.state.mode === "paused") this.state.mode = "stage";
+    }
+
+    handlePauseKey(key) {
+      if (key === "Escape" || key === "p" || key === "P") {
+        if (this.pauseMenu.confirm) this.pauseMenu.confirm = null;
+        else this.resumeFromPause();
+        return;
+      }
+      if (key === "ArrowUp" || key === "w" || key === "W") this.pauseMenu.move(-1);
+      if (key === "ArrowDown" || key === "s" || key === "S") this.pauseMenu.move(1);
+      if (key === "ArrowLeft" || key === "ArrowRight" || key === "a" || key === "d" || key === "A" || key === "D") this.pauseMenu.move(1);
+      if (key === "z" || key === "Z" || key === " " || key === "Enter") this.activatePauseItem();
+    }
+
+    activatePauseItem() {
+      if (this.pauseMenu.confirm) {
+        if (this.pauseMenu.confirm.choice === 0) this.executePauseAction(this.pauseMenu.confirm.action);
+        else this.pauseMenu.confirm = null;
+        return;
+      }
+      const item = this.pauseMenu.selected();
+      if (!item) return;
+      if (item.confirm) {
+        this.pauseMenu.confirm = { text: item.confirm, action: item.action, choice: 1 };
+        return;
+      }
+      this.executePauseAction(item.action);
+    }
+
+    executePauseAction(action) {
+      this.pauseMenu.confirm = null;
+      if (action === "resume") this.resumeFromPause();
+      if (action === "restart") this.start(false, false);
+      if (action === "checkpoint") this.start(true, true);
+      if (action === "title") this.returnToTitle();
+    }
+
+    openGameOverMenu() {
+      this.state.mode = "gameover";
+      this.saveCurrentRun(false);
+      this.gameOverMenu.setItems([
+        { label: "CONTINUE", action: "continue", disabled: this.continuesLeft <= 0 },
+        { label: "RETRY", action: "retry" },
+        { label: "TITLE", action: "title" },
+      ]);
+    }
+
+    handleGameOverKey(key) {
+      if (key === "ArrowUp" || key === "w" || key === "W") this.gameOverMenu.move(-1);
+      if (key === "ArrowDown" || key === "s" || key === "S") this.gameOverMenu.move(1);
+      if (key === "Escape") this.returnToTitle();
+      if (key === "z" || key === "Z" || key === " " || key === "Enter") this.activateGameOverItem();
+    }
+
+    activateGameOverItem() {
+      const item = this.gameOverMenu.selected();
+      if (!item || item.disabled) return;
+      if (item.action === "continue") this.continueFromCheckpoint();
+      if (item.action === "retry") this.start(false, false);
+      if (item.action === "title") this.returnToTitle();
+    }
+
+    continueFromCheckpoint() {
+      if (this.continuesLeft <= 0) return;
+      this.continuesLeft -= 1;
+      this.continueCount += 1;
+      this.score.reduceForContinue();
+      this.start(true, true);
+    }
+
+    handleCanvasTap(e) {
+      if (this.state.mode !== "title" && this.state.mode !== "paused" && this.state.mode !== "gameover") return false;
+      const pos = this.canvasPoint(e);
+      const hit = this.hitMenuItem(pos.x, pos.y);
+      if (hit === null) return false;
+      if (this.state.mode === "title") {
+        this.titleMenu.index = hit;
+        this.activateTitleItem();
+      } else if (this.state.mode === "paused") {
+        if (this.pauseMenu.confirm) {
+          this.pauseMenu.confirm.choice = hit;
+          this.activatePauseItem();
+        } else {
+          this.pauseMenu.index = hit;
+          this.activatePauseItem();
+        }
+      } else if (this.state.mode === "gameover") {
+        this.gameOverMenu.index = hit;
+        this.activateGameOverItem();
+      }
+      return true;
     }
 
     setTouch(e) {
+      const pos = this.canvasPoint(e);
+      this.input.touchX = pos.x;
+      this.input.touchY = pos.y;
+    }
+
+    canvasPoint(e) {
       const rect = canvas.getBoundingClientRect();
-      this.input.touchX = ((e.clientX - rect.left) / rect.width) * W;
-      this.input.touchY = ((e.clientY - rect.top) / rect.height) * H;
+      return {
+        x: ((e.clientX - rect.left) / rect.width) * W,
+        y: ((e.clientY - rect.top) / rect.height) * H,
+      };
+    }
+
+    hitMenuItem(x, y) {
+      const menu = this.getActiveMenu();
+      if (!menu) return null;
+      if (menu.confirm) {
+        if (y >= 462 && y <= 512) return x < W / 2 ? 0 : 1;
+        return null;
+      }
+      const startY = this.state.mode === "title" ? 395 : 345;
+      for (let i = 0; i < menu.items.length; i += 1) {
+        const top = startY + i * 48;
+        if (y >= top && y <= top + 38) return i;
+      }
+      return null;
+    }
+
+    getActiveMenu() {
+      if (this.state.mode === "title") return this.titleMenu;
+      if (this.state.mode === "paused") return this.pauseMenu;
+      if (this.state.mode === "gameover") return this.gameOverMenu;
+      return null;
     }
 
     loop = (time) => {
@@ -1033,9 +1488,10 @@
     };
 
     update() {
-      this.dialogue.update();
+      if (this.state.mode !== "paused") this.dialogue.update();
       if (!this.dialogue.active && this.state.mode === "stage") this.updateStage();
       if (this.dialogue.active) return;
+      if (this.state.mode === "paused" || this.state.mode === "gameover" || this.state.mode === "title") return;
       this.particles.forEach((p) => p.update());
       this.particles = this.particles.filter((p) => p.life > 0);
       this.state.shake = Math.max(0, this.state.shake - 1);
@@ -1045,6 +1501,7 @@
 
     updateStage() {
       this.state.time += 1;
+      this.checkpoints.updateByTime(this.state.time);
       this.playerSpellCooldown = Math.max(0, this.playerSpellCooldown - 1);
       this.playerSpellCutin = Math.max(0, this.playerSpellCutin - 1);
       this.playerSpellTimer = Math.max(0, this.playerSpellTimer - 1);
@@ -1073,7 +1530,7 @@
       this.playerSpellCutin = 82;
       this.playerSpellCooldown = 220;
       this.player.invincible = Math.max(this.player.invincible, 180);
-      this.enemyBullets = [];
+      this.cancelEnemyBullets(true);
       this.lasers = [];
       this.state.shake = 16;
       this.state.showMessage("MASTER SLIPPER", 100);
@@ -1083,7 +1540,7 @@
     updatePlayerSpell() {
       if (this.playerSpellTimer <= 0) return;
       this.player.invincible = Math.max(this.player.invincible, 3);
-      if (this.playerSpellTimer % 8 === 0) this.enemyBullets = [];
+      if (this.playerSpellTimer % 8 === 0) this.cancelEnemyBullets(true);
 
       const beam = this.getPlayerSpellBeam();
       for (const e of this.enemies) {
@@ -1111,15 +1568,17 @@
     spawnStageEnemies() {
       const t = this.state.time;
       if (t < 3300) {
-        if (t % 105 === 20) {
-          for (let i = 0; i < 5; i += 1) this.enemies.push(new Enemy(55 + i * 85, -20 - i * 12, "drift"));
+        const waveRate = Math.round(150 / this.difficulty.config.spawnMultiplier);
+        if (t % waveRate === 20) {
+          const count = this.difficulty.current === "easy" ? 2 : this.difficulty.current === "normal" ? 3 : 4;
+          for (let i = 0; i < count; i += 1) this.spawnEnemy(75 + i * (300 / Math.max(1, count - 1)), -20 - i * 18, "drift");
         }
-        if (t % 170 === 90) {
-          this.enemies.push(new Enemy(70, -25, "sine"));
-          this.enemies.push(new Enemy(W - 70, -25, "sine"));
+        if (t % Math.round(260 / this.difficulty.config.spawnMultiplier) === 100) {
+          this.spawnEnemy(80, -25, "sine");
+          if (this.difficulty.current !== "easy") this.spawnEnemy(W - 80, -25, "sine");
         }
-        if (t % 420 === 260) {
-          this.enemies.push(new Enemy(W / 2, -35, "big"));
+        if (t % Math.round(560 / this.difficulty.config.spawnMultiplier) === 280) {
+          this.spawnEnemy(W / 2, -35, "big");
         }
       }
 
@@ -1128,6 +1587,12 @@
         this.enemyBullets = [];
         this.state.showMessage("花粉濃度、異常上昇", 150);
       }
+    }
+
+    spawnEnemy(x, y, type) {
+      const enemy = new Enemy(x, y, type);
+      enemy.hp = Math.max(1, Math.round(enemy.hp * this.difficulty.config.enemyHpMultiplier));
+      this.enemies.push(enemy);
     }
 
     updateLasers() {
@@ -1147,7 +1612,7 @@
             e.hp -= b.damage;
             b.y = -100;
             if (e.hp <= 0) {
-              this.state.score += e.type === "big" ? 800 : 300;
+              addScore(this, e.type === "big" ? SCORE_VALUES.enemyBig : SCORE_VALUES.enemySmall);
               this.spawnBurst(e.x, e.y, "#f6d94e", 14);
             }
             break;
@@ -1179,11 +1644,29 @@
       for (let i = 0; i < count; i += 1) this.particles.push(new Particle(x, y, color));
     }
 
+    cancelEnemyBullets(score = false) {
+      if (score) addScore(this, this.enemyBullets.length * SCORE_VALUES.bulletCancel);
+      this.enemyBullets = [];
+    }
+
+    checkExtends() {
+      while (this.score.extendIndex < EXTEND_THRESHOLDS.length && this.score.value >= EXTEND_THRESHOLDS[this.score.extendIndex]) {
+        this.score.extendIndex += 1;
+        this.life.extend();
+        this.state.showMessage("EXTEND！ スリッパが一足増えた！", 150);
+        this.spawnBurst(this.player.x, this.player.y, "#fff0a8", 28);
+      }
+    }
+
+    saveCurrentRun(cleared) {
+      this.save.saveRun(this.difficulty.current, this.score.value, this.checkpoints.current, cleared, this.continueCount);
+    }
+
     defeatBoss() {
       if (!this.boss || this.boss.defeated) return;
       this.boss.defeated = true;
       this.spawnBurst(this.boss.x, this.boss.y, "#b7ff8a", 90);
-      this.state.score += 12000;
+      addScore(this, SCORE_VALUES.bossDefeat + SCORE_VALUES.stageClear);
       this.enemyBullets = [];
       this.lasers = [];
       this.playerSpellTimer = 0;
@@ -1191,6 +1674,7 @@
       this.startDialogue("scene_clear", () => {
         this.boss = null;
         this.state.mode = "clear";
+        this.saveCurrentRun(true);
         this.state.showMessage("花粉、滅殺完了！", 9999);
         this.startDialogue("scene_ending");
       });
@@ -1215,8 +1699,9 @@
       ctx.restore();
       this.drawUi();
       if (this.state.mode === "title") this.drawTitle();
-      if (this.state.mode === "gameover") this.drawResult("GAME OVER", "Z / Space / タップで再挑戦");
-      if (this.state.mode === "clear") this.drawResult("花粉、滅殺完了！", "スコア " + this.state.score);
+      if (this.state.mode === "paused") this.drawPauseMenu();
+      if (this.state.mode === "gameover") this.drawGameOverMenu();
+      if (this.state.mode === "clear") this.drawResult("花粉、滅殺完了！", "スコア " + this.score.value);
       this.drawPlayerSpellCutin();
       this.dialogue.draw(ctx);
     }
@@ -1338,15 +1823,17 @@
       ctx.fillStyle = "#f3fff2";
       ctx.font = "700 15px system-ui, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(`SCORE ${this.state.score}`, 12, 24);
+      ctx.fillText(`SCORE ${this.score.value}`, 12, 24);
       ctx.textAlign = "center";
-      ctx.fillText(this.state.stageName, W / 2, 24);
+      ctx.fillText(`${this.state.stageName} ${this.difficulty.label}`, W / 2, 24);
       ctx.textAlign = "right";
-      ctx.fillText(`LIFE ${"■".repeat(Math.max(0, this.state.lives))}`, W - 12, 24);
+      ctx.fillText(`SLIPPER x ${this.life.lives}`, W - 12, 24);
       ctx.fillStyle = "#fff0a8";
       ctx.font = "700 13px system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.fillText(`SPELL ${this.playerSpellCount}`, 12, 55);
+      ctx.textAlign = "right";
+      ctx.fillText(`CP ${this.checkpoints.current}  CONT ${this.continueCount}`, W - 12, 55);
 
       if (this.boss && this.boss.entered && this.state.mode === "stage") {
         ctx.fillStyle = "rgba(10, 25, 17, 0.72)";
@@ -1402,13 +1889,99 @@
       ctx.fillStyle = "#fff1a6";
       ctx.font = "16px system-ui, sans-serif";
       ctx.fillText("King of Slipper 外伝ミニゲーム", W / 2, 320);
-      ctx.fillStyle = "#efffed";
+      this.drawMenu(this.titleMenu, 395, (item) => {
+        if (item.label === "DIFFICULTY") return `DIFFICULTY  < ${this.difficulty.label} >`;
+        return item.label;
+      });
+      ctx.fillStyle = "rgba(239, 255, 237, 0.82)";
+      ctx.font = "13px system-ui, sans-serif";
+      if (this.titlePanel === "how") {
+        ctx.fillText("移動: 矢印/WASD/ドラッグ  低速: Shift/低速ボタン", W / 2, 610);
+        ctx.fillText("ショット: Z/Space  スペル: X/SPELL  ポーズ: Esc/P/MENU", W / 2, 634);
+      } else if (this.titlePanel === "score") {
+        const save = this.save.data;
+        ctx.fillText(`EASY ${save.easy.highScore} / CP${save.easy.maxCheckpoint} / ${save.easy.cleared ? "CLEAR" : "未クリア"}`, W / 2, 598);
+        ctx.fillText(`NORMAL ${save.normal.highScore} / CP${save.normal.maxCheckpoint} / ${save.normal.cleared ? "CLEAR" : "未クリア"}`, W / 2, 622);
+        ctx.fillText(`HARD ${save.hard.highScore} / CP${save.hard.maxCheckpoint} / ${save.hard.cleared ? "CLEAR" : "未クリア"}`, W / 2, 646);
+      } else {
+        ctx.fillText("上下で選択、左右で難易度変更、Z/Enter/タップで決定", W / 2, 624);
+      }
+    }
+
+    drawMenu(menu, startY, labeler = (item) => item.label) {
+      ctx.textAlign = "center";
+      menu.items.forEach((item, i) => {
+        const selected = i === menu.index;
+        ctx.fillStyle = selected ? "rgba(255, 240, 168, 0.22)" : "rgba(0, 0, 0, 0.38)";
+        if (item.disabled) ctx.fillStyle = "rgba(80, 80, 80, 0.28)";
+        ctx.fillRect(86, startY + i * 48, W - 172, 38);
+        ctx.strokeStyle = selected ? "#fff0a8" : "rgba(255,255,255,0.18)";
+        ctx.strokeRect(86, startY + i * 48, W - 172, 38);
+        ctx.fillStyle = item.disabled ? "rgba(255,255,255,0.32)" : "#f6fff1";
+        ctx.font = "800 18px system-ui, sans-serif";
+        ctx.fillText(labeler(item), W / 2, startY + i * 48 + 25);
+      });
+    }
+
+    drawPauseMenu() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.68)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f6fff1";
+      ctx.font = "900 34px system-ui, sans-serif";
+      ctx.fillText("PAUSE", W / 2, 280);
+      this.drawMenu(this.pauseMenu, 345);
+      this.drawConfirm(this.pauseMenu);
+    }
+
+    drawGameOverMenu() {
+      ctx.fillStyle = "rgba(5, 13, 12, 0.76)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffb8a8";
+      ctx.font = "900 34px system-ui, sans-serif";
+      ctx.fillText("GAME OVER", W / 2, 265);
+      ctx.fillStyle = "#eaffdf";
       ctx.font = "15px system-ui, sans-serif";
-      ctx.fillText("矢印/WASD: 移動  Shift: 低速  Z/Space: ショット", W / 2, 410);
-      ctx.fillText("X: マスタースリッパ  スマホ: SPELLボタン", W / 2, 438);
-      ctx.fillText("スマホ: ドラッグ移動・自動ショット", W / 2, 466);
-      ctx.font = "700 20px system-ui, sans-serif";
-      ctx.fillText("Z / Space / タップで開始", W / 2, 520);
+      ctx.fillText(`CONTINUE ${this.continuesLeft} / SCORE ${this.score.value}`, W / 2, 305);
+      this.drawMenu(this.gameOverMenu, 345);
+    }
+
+    drawConfirm(menu) {
+      if (!menu.confirm) return;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.86)";
+      ctx.fillRect(44, 356, W - 88, 180);
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.strokeRect(44, 356, W - 88, 180);
+      ctx.fillStyle = "#f6fff1";
+      ctx.font = "700 17px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      this.wrapCentered(menu.confirm.text, W / 2, 405, W - 120, 24);
+      ["YES", "NO"].forEach((label, i) => {
+        ctx.fillStyle = menu.confirm.choice === i ? "rgba(255, 240, 168, 0.22)" : "rgba(255,255,255,0.08)";
+        ctx.fillRect(86 + i * 150, 462, 128, 50);
+        ctx.strokeStyle = menu.confirm.choice === i ? "#fff0a8" : "rgba(255,255,255,0.18)";
+        ctx.strokeRect(86 + i * 150, 462, 128, 50);
+        ctx.fillStyle = "#f6fff1";
+        ctx.font = "800 18px system-ui, sans-serif";
+        ctx.fillText(label, 150 + i * 150, 494);
+      });
+    }
+
+    wrapCentered(text, x, y, maxWidth, lineHeight) {
+      let line = "";
+      const rows = [];
+      for (const ch of text) {
+        const next = line + ch;
+        if (ctx.measureText(next).width > maxWidth && line) {
+          rows.push(line);
+          line = ch;
+        } else {
+          line = next;
+        }
+      }
+      if (line) rows.push(line);
+      rows.forEach((row, i) => ctx.fillText(row, x, y + i * lineHeight));
     }
 
     drawResult(title, subtitle) {

@@ -196,6 +196,20 @@ body {
   background: var(--gold);
 }
 
+.menu-button {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 4;
+  min-width: 70px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(6, 14, 12, 0.72);
+  color: #f5fff0;
+  font-weight: 800;
+  backdrop-filter: blur(8px);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .slow-button,
   .spell-button {
