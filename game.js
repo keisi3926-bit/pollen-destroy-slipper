@@ -29,7 +29,8 @@
   const BGM_STAGE1 = "assets/audio/stage1_spring_pollen_path.mp3";
   const BGM_BOSS = "assets/audio/boss_suginomikoto.mp3";
   const PLAYER_ASSET = "assets/characters/player.png";
-  const APP_VERSION = "0.8.1";
+  const BOSS_ASSET = "assets/characters/suginomikoto.png";
+  const APP_VERSION = "0.9.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -825,6 +826,12 @@
       this.currentCard = this.spellCards[0];
       this.hp = this.currentCard.hp;
       this.maxHp = this.currentCard.maxHp;
+      this.image = new Image();
+      this.imageLoaded = false;
+      this.image.onload = () => {
+        this.imageLoaded = true;
+      };
+      this.image.src = `${BOSS_ASSET}?v=${APP_VERSION}`;
     }
 
     update(game) {
@@ -913,6 +920,11 @@
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
+      if (this.imageLoaded) {
+        this.drawBossImage(ctx);
+        ctx.restore();
+        return;
+      }
 
       // 杉の神らしいシルエットを、三角の樹冠と面で表現する。
       ctx.fillStyle = "#2d8a48";
@@ -941,6 +953,31 @@
       ctx.quadraticCurveTo(0, 21, 13, 12);
       ctx.stroke();
       ctx.restore();
+    }
+
+    drawBossImage(ctx) {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      const aura = ctx.createRadialGradient(0, 0, 18, 0, 0, 76);
+      aura.addColorStop(0, "rgba(255, 221, 86, 0.32)");
+      aura.addColorStop(1, "rgba(255, 221, 86, 0)");
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(0, 0, 76, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(0, 5, 54, 72, 0, 0, TAU);
+      ctx.clip();
+      ctx.drawImage(this.image, 210, 0, 615, 1536, -42, -70, 84, 142);
+      ctx.restore();
+
+      ctx.fillStyle = "rgba(255, 248, 181, 0.88)";
+      ctx.beginPath();
+      ctx.arc(0, 3, 5, 0, TAU);
+      ctx.fill();
     }
   }
 

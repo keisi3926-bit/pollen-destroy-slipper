@@ -1,8 +1,13 @@
 {
-  "version": "0.8.1",
+  "version": "0.9.0",
   "build": "2026-06-24",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.9.0",
+      "date": "2026-06-24",
+      "summary": "スギノミコトの会話立ち絵とボス戦中の表示画像を新規アートへ差し替え。"
+    },
     {
       "version": "0.8.1",
       "date": "2026-06-24",
@@ -64,6 +69,7 @@
     "assets/audio/stage1_spring_pollen_path.mp3",
     "assets/audio/boss_suginomikoto.mp3",
     "assets/characters/player.png",
+    "assets/characters/suginomikoto.png",
     "assets/characters/.gitkeep"
   ]
 }
