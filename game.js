@@ -30,7 +30,7 @@
   const BGM_BOSS = "assets/audio/boss_suginomikoto.mp3";
   const PLAYER_ASSET = "assets/characters/player.png";
   const BOSS_ASSET = "assets/characters/suginomikoto.png";
-  const APP_VERSION = "0.9.0";
+  const APP_VERSION = "0.10.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -456,15 +456,15 @@
     }
 
     update(input, bullets) {
-      const slow = input.slow;
+      const slow = input.slow || input.gpSlow;
       const speed = slow ? 2.5 : 5;
       let mx = 0;
       let my = 0;
 
-      if (input.left) mx -= 1;
-      if (input.right) mx += 1;
-      if (input.up) my -= 1;
-      if (input.down) my += 1;
+      if (input.left || input.gpLeft) mx -= 1;
+      if (input.right || input.gpRight) mx += 1;
+      if (input.up || input.gpUp) my -= 1;
+      if (input.down || input.gpDown) my += 1;
 
       if (input.touchActive) {
         this.x += (input.touchX - this.x) * (slow ? 0.15 : 0.26);
@@ -480,7 +480,7 @@
       this.cooldown = Math.max(0, this.cooldown - 1);
       this.invincible = Math.max(0, this.invincible - 1);
 
-      if ((input.fire || input.touchActive) && this.cooldown <= 0) {
+      if ((input.fire || input.gpFire || input.touchActive) && this.cooldown <= 0) {
         this.shoot(bullets);
         this.cooldown = slow ? 7 : 6;
       }
@@ -1388,9 +1388,20 @@
         down: false,
         fire: false,
         slow: false,
+        gpLeft: false,
+        gpRight: false,
+        gpUp: false,
+        gpDown: false,
+        gpFire: false,
+        gpSlow: false,
         touchActive: false,
         touchX: W / 2,
         touchY: H - 90,
+      };
+      this.gamepad = {
+        index: null,
+        prevButtons: [],
+        navCooldown: 0,
       };
       this.bindInput();
     }
@@ -1708,6 +1719,109 @@
       return null;
     }
 
+    resetGamepadInput() {
+      this.input.gpLeft = false;
+      this.input.gpRight = false;
+      this.input.gpUp = false;
+      this.input.gpDown = false;
+      this.input.gpFire = false;
+      this.input.gpSlow = false;
+      this.gamepad.prevButtons = [];
+    }
+
+    readGamepad() {
+      if (!navigator.getGamepads) {
+        this.resetGamepadInput();
+        return;
+      }
+
+      const pads = Array.from(navigator.getGamepads());
+      let pad = this.gamepad.index !== null ? pads[this.gamepad.index] : null;
+      if (!pad || !pad.connected) {
+        pad = pads.find((item) => item && item.connected) || null;
+        this.gamepad.index = pad ? pad.index : null;
+      }
+      if (!pad) {
+        this.resetGamepadInput();
+        return;
+      }
+
+      const buttons = pad.buttons.map((button) => button.pressed || button.value > 0.55);
+      const justPressed = (index) => buttons[index] && !this.gamepad.prevButtons[index];
+      const axisX = Math.abs(pad.axes[0] || 0) > 0.28 ? pad.axes[0] : 0;
+      const axisY = Math.abs(pad.axes[1] || 0) > 0.28 ? pad.axes[1] : 0;
+      const dpadUp = buttons[12];
+      const dpadDown = buttons[13];
+      const dpadLeft = buttons[14];
+      const dpadRight = buttons[15];
+
+      this.input.gpLeft = dpadLeft || axisX < 0;
+      this.input.gpRight = dpadRight || axisX > 0;
+      this.input.gpUp = dpadUp || axisY < 0;
+      this.input.gpDown = dpadDown || axisY > 0;
+      this.input.gpFire = buttons[0];
+      this.input.gpSlow = buttons[4] || buttons[5] || buttons[6] || buttons[7];
+
+      if (this.gamepad.navCooldown > 0) this.gamepad.navCooldown -= 1;
+
+      if (this.dialogue.active) {
+        if (justPressed(0)) this.dialogue.advance();
+        if (justPressed(1)) this.dialogue.skip();
+        this.gamepad.prevButtons = buttons;
+        return;
+      }
+
+      if (this.state.mode === "title") {
+        this.handleGamepadMenu(buttons, justPressed, axisX, axisY, this.titleMenu);
+        if (justPressed(0)) this.activateTitleItem();
+        if (justPressed(1)) this.titlePanel = "main";
+      } else if (this.state.mode === "paused") {
+        this.handleGamepadMenu(buttons, justPressed, axisX, axisY, this.pauseMenu);
+        if (justPressed(0)) this.activatePauseItem();
+        if (justPressed(1) || justPressed(8) || justPressed(9)) {
+          if (this.pauseMenu.confirm) this.pauseMenu.confirm = null;
+          else this.resumeFromPause();
+        }
+      } else if (this.state.mode === "gameover") {
+        this.handleGamepadMenu(buttons, justPressed, axisX, axisY, this.gameOverMenu);
+        if (justPressed(0)) this.activateGameOverItem();
+        if (justPressed(1)) this.returnToTitle();
+      } else if (this.state.mode === "stage") {
+        if (justPressed(2)) this.activatePlayerSpell();
+        if (justPressed(8) || justPressed(9)) this.openPauseMenu();
+      }
+
+      this.gamepad.prevButtons = buttons;
+    }
+
+    handleGamepadMenu(buttons, justPressed, axisX, axisY, menu) {
+      if (!menu) return;
+      const xDir = buttons[15] || axisX > 0 ? 1 : buttons[14] || axisX < 0 ? -1 : 0;
+      const yDir = buttons[13] || axisY > 0 ? 1 : buttons[12] || axisY < 0 ? -1 : 0;
+      const canRepeat = this.gamepad.navCooldown <= 0;
+
+      if (justPressed(12) || (yDir < 0 && canRepeat)) {
+        menu.move(-1);
+        this.gamepad.navCooldown = 12;
+      }
+      if (justPressed(13) || (yDir > 0 && canRepeat)) {
+        menu.move(1);
+        this.gamepad.navCooldown = 12;
+      }
+      if (justPressed(14) || (xDir < 0 && canRepeat)) {
+        if (this.state.mode === "title" && this.titleMenu.selected()?.label === "DIFFICULTY") this.difficulty.next(-1);
+        else if (menu.confirm) menu.confirm.choice = 0;
+        else menu.move(-1);
+        this.gamepad.navCooldown = 12;
+      }
+      if (justPressed(15) || (xDir > 0 && canRepeat)) {
+        if (this.state.mode === "title" && this.titleMenu.selected()?.label === "DIFFICULTY") this.difficulty.next(1);
+        else if (menu.confirm) menu.confirm.choice = 1;
+        else menu.move(1);
+        this.gamepad.navCooldown = 12;
+      }
+    }
+
     loop = (time) => {
       const dt = Math.min(2, (time - this.lastTime) / 16.666 || 1);
       this.lastTime = time;
@@ -1717,6 +1831,7 @@
     };
 
     update() {
+      this.readGamepad();
       if (this.state.mode !== "paused") this.dialogue.update();
       if (!this.dialogue.active && this.state.mode === "stage") this.updateStage();
       if (this.dialogue.active) return;
@@ -2144,6 +2259,7 @@
       if (this.titlePanel === "how") {
         ctx.fillText("移動: 矢印/WASD/ドラッグ  低速: Shift/低速ボタン", W / 2, 610);
         ctx.fillText("ショット: Z/Space  履技: X/履技ボタン  ポーズ: Esc/P/MENU", W / 2, 634);
+        ctx.fillText("Xbox: 左スティック/D-pad移動  Aショット/決定  X履技  LB/RB低速  Menuポーズ", W / 2, 658);
       } else if (this.titlePanel === "score") {
         const save = this.save.data;
         ctx.fillText(`EASY ${save.easy.highScore} / CP${save.easy.maxCheckpoint} / ${save.easy.cleared ? "CLEAR" : "未クリア"}`, W / 2, 598);

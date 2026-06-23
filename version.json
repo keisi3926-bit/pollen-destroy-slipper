@@ -1,8 +1,13 @@
 {
-  "version": "0.9.0",
+  "version": "0.10.0",
   "build": "2026-06-24",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.10.0",
+      "date": "2026-06-24",
+      "summary": "Xboxコントローラー入力に対応。左スティック/D-pad移動、Aショット、X履技、LB/RB低速、Menuポーズを追加。"
+    },
     {
       "version": "0.9.0",
       "date": "2026-06-24",
