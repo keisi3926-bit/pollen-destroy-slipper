@@ -113,7 +113,7 @@ const sandbox = {
   },
   fetch: async () => ({
     ok: true,
-    json: async () => ({ version: "0.16.0", updates: [] }),
+    json: async () => ({ version: "0.17.0", updates: [] }),
   }),
   caches: { keys: async () => [] },
   requestAnimationFrame() {},
@@ -141,7 +141,7 @@ assert.equal(updatePanel.classList.contains("is-closed"), true, "mobile update p
 game.start(false, false);
 game.dialogue.active = false;
 game.playerSpellCooldown = 0;
-assert.equal(game.player.hitPoint.y, game.player.y - 15, "player hit point should be centered on the chest");
+assert.equal(game.player.hitPoint.y, game.player.y - 6, "player hit point should sit between the previous chest and lower positions");
 game.life.lives = 3;
 game.player.invincible = 0;
 game.enemyBullets = [{ x: game.player.hitPoint.x, y: game.player.hitPoint.y, r: 1 }];
@@ -306,6 +306,7 @@ game.dialogue.start("scene_boss");
 assert.equal(game.dialogue.resolvePortraitLine("left").portrait, "player.png");
 assert.equal(game.dialogue.resolvePortraitLine("right").portrait, "suginomikoto.png");
 game.enemyBullets = [];
+game.playerSpellCutin = 40;
 game.draw();
 game.dialogue.completeNow();
 

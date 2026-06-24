@@ -31,7 +31,8 @@
   const PLAYER_ASSET = "assets/characters/player.png";
   const BOSS_ASSET = "assets/characters/suginomikoto.png";
   const POLLEN_ENEMY_ASSET = "assets/enemies/pollen_enemies.png";
-  const APP_VERSION = "0.16.0";
+  const SLIPPER_NOVA_CUTIN_ASSET = "assets/effects/slipper_nova_cutin.jpg";
+  const APP_VERSION = "0.17.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -502,7 +503,7 @@
       this.x = W / 2;
       this.y = H - 90;
       this.r = 5;
-      this.hitOffsetY = -15;
+      this.hitOffsetY = -6;
       this.cooldown = 0;
       this.invincible = 0;
       this.image = new Image();
@@ -1708,6 +1709,15 @@
       this.background = new BackgroundManager(BACKGROUND_STAGE1);
       this.audio = new AudioManager();
       this.audio.fadeTo(this.save.data.settings?.volume ?? 0.5);
+      this.slipperNovaCutin = new Image();
+      this.slipperNovaCutinLoaded = false;
+      this.slipperNovaCutin.onload = () => {
+        this.slipperNovaCutinLoaded = true;
+      };
+      this.slipperNovaCutin.onerror = () => {
+        this.slipperNovaCutinLoaded = false;
+      };
+      this.slipperNovaCutin.src = `${SLIPPER_NOVA_CUTIN_ASSET}?v=${APP_VERSION}`;
       this.titleMenu = new MenuManager(["START GAME", "DIFFICULTY", "HOW TO PLAY", "HIGH SCORE"].map((label) => ({ label })));
       this.pauseMenu = new MenuManager();
       this.gameOverMenu = new MenuManager();
@@ -2732,17 +2742,45 @@
     drawPlayerSpellCutin() {
       if (this.playerSpellCutin <= 0) return;
       const alpha = Math.min(0.78, this.playerSpellCutin / 28);
+      const visibility = Math.min(1, this.playerSpellCutin / 18);
       ctx.save();
       ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
       ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = Math.min(1, this.playerSpellCutin / 20);
+      ctx.globalAlpha = visibility;
+      if (this.slipperNovaCutinLoaded) {
+        const bandH = 190;
+        const bandY = H / 2 - bandH / 2;
+        const sourceW = Math.min(this.slipperNovaCutin.width, this.slipperNovaCutin.height * (W / bandH));
+        const sourceX = (this.slipperNovaCutin.width - sourceW) / 2;
+        ctx.fillStyle = "#080907";
+        ctx.fillRect(0, bandY - 5, W, bandH + 10);
+        ctx.drawImage(
+          this.slipperNovaCutin,
+          sourceX,
+          0,
+          sourceW,
+          this.slipperNovaCutin.height,
+          0,
+          bandY,
+          W,
+          bandH
+        );
+        const sheen = ctx.createLinearGradient(0, bandY, W, bandY + bandH);
+        sheen.addColorStop(0, "rgba(255, 220, 112, 0.05)");
+        sheen.addColorStop(0.68, "rgba(255, 220, 112, 0)");
+        sheen.addColorStop(1, "rgba(255, 240, 190, 0.18)");
+        ctx.fillStyle = sheen;
+        ctx.fillRect(0, bandY, W, bandH);
+      }
       ctx.fillStyle = "#e8fbff";
-      ctx.font = "900 38px system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("SLIPPER NOVA", W / 2, H / 2 - 16);
-      ctx.fillStyle = "#9cefff";
-      ctx.font = "700 17px system-ui, sans-serif";
-      ctx.fillText("極履技「スリッパ・ノヴァ」", W / 2, H / 2 + 22);
+      ctx.font = "900 30px system-ui, sans-serif";
+      ctx.textAlign = "right";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+      ctx.shadowBlur = 8;
+      ctx.fillText("SLIPPER NOVA", W - 18, H / 2 + 64);
+      ctx.fillStyle = "#ffe18a";
+      ctx.font = "800 15px system-ui, sans-serif";
+      ctx.fillText("極履技「スリッパ・ノヴァ」", W - 18, H / 2 + 88);
       ctx.restore();
     }
 

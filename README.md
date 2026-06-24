@@ -53,6 +53,7 @@ Xboxコントローラー:
 - 道中BGM `assets/audio/stage1_spring_pollen_path.mp3` 対応
 - ボスBGM `assets/audio/boss_suginomikoto.mp3` 対応
 - 主人公の極履技「スリッパ・ノヴァ」
+- 専用画像 `assets/effects/slipper_nova_cutin.jpg` を使ったノヴァカットイン
 - 履力アイテム（小P・大P）と最大4足の追従支援機「随履」
 - 紫色の点数アイテム「点」（小200・中500・大1200点）
 - 画面上部20％へ移動すると、画面内のP・点アイテムを自動回収
@@ -109,6 +110,8 @@ assets/
     .gitkeep
   enemies/
     pollen_enemies.png
+  effects/
+    slipper_nova_cutin.jpg
 ```
 
 ## 更新管理
