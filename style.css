@@ -229,6 +229,12 @@ body {
   filter: grayscale(1);
 }
 
+.dialogue-active .slow-button,
+.dialogue-active .spell-button {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .menu-button {
   position: fixed;
   top: max(10px, env(safe-area-inset-top));
@@ -266,6 +272,6 @@ body {
   }
 
   .spell-button {
-    bottom: clamp(210px, 38vh, 330px);
+    bottom: calc(var(--mobile-control-bottom) + var(--mobile-control-size) + 14px);
   }
 }

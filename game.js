@@ -89,7 +89,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.21.0";
+  const APP_VERSION = "0.22.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -1121,10 +1121,13 @@
 
     update(boss, game) {
       this.age += 1;
-      this.frenzy = this.survival && this.duration - this.age <= 600;
+      const hpRatio = this.maxHp > 0 ? this.hp / this.maxHp : 0;
+      const isFinalLife = boss.cardIndex === boss.spellCards.length - 1;
+      this.frenzy = (this.survival && this.duration - this.age <= 600)
+        || (!this.survival && isFinalLife && hpRatio <= 0.4);
       if (this.frenzy && !this.frenzyAnnounced) {
         this.frenzyAnnounced = true;
-        game.state.showMessage("発狂モード - LAST 10 SEC", 150);
+        game.state.showMessage(this.survival ? "発狂モード - LAST 10 SEC" : "発狂モード - HP 40%以下", 150);
         game.state.shake = Math.max(game.state.shake, 10);
       }
       if (this.survival) {
@@ -1329,7 +1332,7 @@
       return [
         new SpellCard({ name: "Phase 1 通常弾幕", duration: 720, hp: 360, pattern: "normalSpread", type: "normal" }),
         new SpellCard({ name: "神威「黄塵円舞」", duration: 900, hp: 430, pattern: "yellowDance" }),
-        new SpellCard({ name: "大神威「無限飛散」", duration: 1800, hp: 1, pattern: "infiniteScatter", survival: true }),
+        new SpellCard({ name: "大神威「無限飛散」", duration: 1800, hp: 560, pattern: "infiniteScatter" }),
       ];
     }
 
@@ -1377,7 +1380,7 @@
       if (this.cardIndex >= this.spellCards.length) {
         this.enemyClearOnCardChange(game);
         this.transitioning = true;
-        game.pendingBossDefeat = survivalSuccess ? 185 : 70;
+        game.pendingBossDefeat = hpBreak || survivalSuccess ? 185 : 70;
         return;
       }
       this.beginCurrentCard(game);
@@ -2761,6 +2764,7 @@
     update() {
       this.readGamepad();
       if (this.state.mode !== "paused") this.dialogue.update();
+      document.body.classList.toggle("dialogue-active", this.dialogue.active);
       if (!this.dialogue.active && this.state.mode === "stage") this.updateStage();
       if (this.dialogue.active) return;
       if (this.state.mode === "paused" || this.state.mode === "gameover" || this.state.mode === "title") return;
@@ -3563,20 +3567,35 @@
       ctx.fillText(`${powerStageLabel}  ${this.power.label}`, powerBarX + powerBarW / 2, powerBarY + 12);
 
       if (this.boss && this.boss.entered && this.state.mode === "stage") {
-        const phaseColors = ["#75df6b", "#ffad45", "#ef4f4f"];
-        const gap = 5;
-        const totalWidth = W - 108;
-        const segmentWidth = (totalWidth - gap * 2) / 3;
-        for (let i = 0; i < 3; i += 1) {
-          const x = 54 + i * (segmentWidth + gap);
-          ctx.fillStyle = "rgba(10, 25, 17, 0.72)";
-          ctx.fillRect(x, 45, segmentWidth, 10);
-          let ratio = i < this.boss.cardIndex ? 0 : i > this.boss.cardIndex ? 1 : Math.max(0, this.boss.hp / this.boss.maxHp);
-          if (this.boss.currentCard?.survival && i === this.boss.cardIndex) {
-            ratio = Math.max(0, (this.boss.currentCard.duration - this.boss.currentCard.age) / this.boss.currentCard.duration);
-          }
-          ctx.fillStyle = phaseColors[i];
-          ctx.fillRect(x, 45, segmentWidth * ratio, 10);
+        const barX = 54;
+        const barWidth = W - 108;
+        const barHeight = 9;
+        const barGap = 4;
+        const hpColor = (ratio) => {
+          if (ratio >= 0.6) return "#68db62";
+          if (ratio > 0.3) return "#f2d64b";
+          return "#ef5350";
+        };
+        const drawLifeBar = (y, ratio, state = "current") => {
+          ctx.fillStyle = "rgba(10, 25, 17, 0.78)";
+          ctx.fillRect(barX, y, barWidth, barHeight);
+          if (state === "empty") return;
+          const visibleRatio = clamp(ratio, 0, 1);
+          ctx.fillStyle = state === "reserve" ? "#68db62" : hpColor(visibleRatio);
+          ctx.fillRect(barX, y, barWidth * visibleRatio, barHeight);
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.28)";
+          ctx.strokeRect(barX, y, barWidth, barHeight);
+        };
+
+        const currentRatio = Math.max(0, this.boss.hp / this.boss.maxHp);
+        if (this.boss.cardIndex === 0) {
+          drawLifeBar(45, currentRatio);
+        } else {
+          // 1本目の破壊後に残り2本を追加し、下段（第2ライフ）から削る。
+          const phase3State = this.boss.cardIndex === 2 ? "current" : "reserve";
+          const phase2State = this.boss.cardIndex === 1 ? "current" : "empty";
+          drawLifeBar(45, this.boss.cardIndex === 2 ? currentRatio : 1, phase3State);
+          drawLifeBar(45 + barHeight + barGap, this.boss.cardIndex === 1 ? currentRatio : 0, phase2State);
         }
         if (this.boss.currentCard && this.boss.currentCard.isSpell) {
           const card = this.boss.currentCard;
