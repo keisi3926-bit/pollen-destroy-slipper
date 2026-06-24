@@ -89,7 +89,8 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.22.2";
+  const APP_VERSION = "0.23.0";
+  const BOSS_DAMAGE_MULTIPLIER = 0.68;
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -1339,8 +1340,8 @@
     createSpellCards() {
       return [
         new SpellCard({ name: "Phase 1 通常弾幕", duration: 720, hp: 360, pattern: "normalSpread", type: "normal" }),
-        new SpellCard({ name: "神威「黄塵円舞」", duration: 900, hp: 430, pattern: "yellowDance" }),
-        new SpellCard({ name: "大神威「無限飛散」", duration: 1800, hp: 560, pattern: "infiniteScatter" }),
+        new SpellCard({ name: "神威「黄塵円舞」", duration: 1200, hp: 1, pattern: "yellowDance", survival: true }),
+        new SpellCard({ name: "大神威「無限飛散」", duration: 2400, hp: 620, pattern: "infiniteScatter" }),
       ];
     }
 
@@ -1365,6 +1366,7 @@
       clearedCard.resolved = true;
       const hpBreak = reason === "hp-break";
       const survivalEnd = reason === "survival-timeout";
+      const phaseTimeout = reason === "phase-timeout";
       const survivalSuccess = survivalEnd && !clearedCard.failed;
 
       if (survivalEnd) game.audio.playSE("time_up", { maxVoices: 1 });
@@ -1381,6 +1383,11 @@
         game.spawnBossPhaseBonus(this.x, this.y);
       } else if (survivalEnd) {
         game.state.showMessage("FAILED　NO BONUS", 65);
+        game.audio.playSE("spell_failed", { maxVoices: 1 });
+      } else if (phaseTimeout) {
+        clearedCard.failed = true;
+        game.state.showMessage("FAILED - TIME OVER / NO BONUS", 90);
+        game.audio.playSE("time_up", { maxVoices: 1 });
         game.audio.playSE("spell_failed", { maxVoices: 1 });
       }
 
@@ -1399,9 +1406,10 @@
     takeDamage(game, amount) {
       if (!this.currentCard || this.defeated || this.transitioning || !this.entered) return;
       if (this.currentCard.survival || this.currentCard.resolved) return;
-      this.currentCard.hp -= amount;
+      const appliedDamage = amount * BOSS_DAMAGE_MULTIPLIER;
+      this.currentCard.hp = Math.max(0, this.currentCard.hp - appliedDamage);
       this.hp = this.currentCard.hp;
-      addScore(game, amount * SCORE_VALUES.bossDamage);
+      addScore(game, appliedDamage * SCORE_VALUES.bossDamage);
       if (this.currentCard.hp <= 0) this.nextCard(game, "hp-break");
     }
 
@@ -2581,6 +2589,9 @@
       this.continueCount += 1;
       this.score.reduceForContinue();
       this.start(true, true);
+      this.grazeCount = 0;
+      this.grazeMilestoneIndex = 0;
+      this.grazeFlash = 0;
       this.power.value = this.power.max;
       this.continueFullPower = true;
       this.syncFollowers();
@@ -3618,7 +3629,10 @@
           ctx.strokeRect(barX, y, barWidth, barHeight);
         };
 
-        const currentRatio = Math.max(0, this.boss.hp / this.boss.maxHp);
+        const currentCard = this.boss.currentCard;
+        const currentRatio = currentCard?.survival
+          ? Math.max(0, (currentCard.duration - currentCard.age) / currentCard.duration)
+          : Math.max(0, this.boss.hp / this.boss.maxHp);
         if (this.boss.cardIndex === 0) {
           drawLifeBar(45, currentRatio);
         } else {
