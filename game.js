@@ -31,7 +31,7 @@
   const PLAYER_ASSET = "assets/characters/player.png";
   const BOSS_ASSET = "assets/characters/suginomikoto.png";
   const POLLEN_ENEMY_ASSET = "assets/enemies/pollen_enemies.png";
-  const APP_VERSION = "0.13.0";
+  const APP_VERSION = "0.14.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -549,16 +549,34 @@
       this.invincible = Math.max(0, this.invincible - 1);
 
       if ((input.fire || input.gpFire || input.touchActive) && this.cooldown <= 0) {
-        this.shoot(bullets);
+        this.shoot(bullets, game?.power.stage || 0);
         if (game) game.shootFollowers();
         this.cooldown = slow ? 7 : 6;
       }
     }
 
-    shoot(bullets) {
-      bullets.push(new Bullet(this.x - 8, this.y - 18, 0, -9, 4, "player"));
-      bullets.push(new Bullet(this.x + 8, this.y - 18, 0, -9, 4, "player"));
-      bullets.push(new Bullet(this.x, this.y - 24, 0, -10, 5, "player"));
+    shoot(bullets, powerStage) {
+      const colors = ["#bdf6ff", "#a9efff", "#7ee5ff", "#74f1d1", "#fff0a8"];
+      const color = colors[powerStage];
+      if (powerStage === 0) {
+        bullets.push(new Bullet(this.x, this.y - 24, 0, -10, 4, "player", color, { damage: 1 }));
+        return;
+      }
+
+      const sideOffset = powerStage >= 3 ? 11 : 8;
+      const radius = powerStage >= 4 ? 6 : powerStage >= 2 ? 5 : 4;
+      const damage = powerStage >= 4 ? 1.35 : powerStage >= 2 ? 1.15 : 1;
+      bullets.push(new Bullet(this.x - sideOffset, this.y - 18, powerStage >= 3 ? -0.16 : 0, -9.4, radius, "player", color, { damage }));
+      bullets.push(new Bullet(this.x + sideOffset, this.y - 18, powerStage >= 3 ? 0.16 : 0, -9.4, radius, "player", color, { damage }));
+      if (powerStage >= 2) {
+        bullets.push(new Bullet(this.x, this.y - 27, 0, -10.4, powerStage >= 4 ? 7 : 5, "player", "#efffff", {
+          damage: powerStage >= 4 ? 1.65 : 1.25,
+        }));
+      }
+      if (powerStage >= 4) {
+        bullets.push(new Bullet(this.x - 20, this.y - 12, -0.3, -9, 4, "player", "#fff0a8", { damage: 0.8 }));
+        bullets.push(new Bullet(this.x + 20, this.y - 12, 0.3, -9, 4, "player", "#fff0a8", { damage: 0.8 }));
+      }
     }
 
     hit(game) {
@@ -1583,6 +1601,7 @@
       this.bossBgm.volume = 0.52;
       this.enabled = true;
       this.unlocked = false;
+      this.onPowerItem = null;
     }
 
     unlock() {
@@ -1623,6 +1642,11 @@
       this.stageBgm.volume = clamp(volume, 0, 1);
       this.bossBgm.volume = clamp(volume, 0, 1);
     }
+
+    playPowerItem(amount, stageChanged) {
+      // 後から実音源を接続できる取得効果音フック。
+      if (typeof this.onPowerItem === "function") this.onPowerItem({ amount, stageChanged });
+    }
   }
 
   class Game {
@@ -1655,6 +1679,7 @@
       this.playerSpellCutin = 0;
       this.playerSpellCooldown = 0;
       this.playerSpellActive = false;
+      this.powerUpFlash = 0;
       this.continuesLeft = INITIAL_CONTINUES;
       this.continueCount = 0;
       this.missedDuringCard = false;
@@ -1718,6 +1743,7 @@
       this.playerSpellCutin = 0;
       this.playerSpellCooldown = 0;
       this.playerSpellActive = false;
+      this.powerUpFlash = 0;
       this.missedDuringCard = false;
       this.spawnedWaves = new Set(
         STAGE_WAVES.map((wave, index) => ({ wave, index })).filter(({ wave }) => wave.time <= startTime).map(({ index }) => index)
@@ -2181,6 +2207,7 @@
       this.state.shake = Math.max(0, this.state.shake - 1);
       this.state.messageTimer = Math.max(0, this.state.messageTimer - 1);
       this.state.bossNameTimer = Math.max(0, this.state.bossNameTimer - 1);
+      this.powerUpFlash = Math.max(0, this.powerUpFlash - 1);
     }
 
     updateStage() {
@@ -2264,16 +2291,6 @@
         }
       }
 
-      for (const item of this.powerItems) {
-        if (item.collected || dist2(item, this.player) >= (item.r + this.player.r + 7) ** 2) continue;
-        item.collected = true;
-        const oldStage = this.power.stage;
-        const gained = this.power.add(item.amount);
-        if (gained === 0) addScore(this, item.amount >= 5 ? 2000 : 500);
-        this.syncFollowers();
-        if (this.power.stage > oldStage) this.state.showMessage(`随履 ${this.power.stage}足 展開`, 90);
-        this.spawnBurst(item.x, item.y, "#8eeeff", 10);
-      }
       if (this.boss && this.boss.entered && !this.boss.defeated) {
         if (Math.abs(this.boss.x - beam.x) < beam.w / 2 + this.boss.r && this.boss.y < beam.bottom) {
           this.boss.takeDamage(this, 1.25);
@@ -2418,6 +2435,35 @@
           this.player.hit(this);
         }
       }
+
+      // 逆順で判定し、取得成立したアイテムを同一フレームで即座に配列から除去する。
+      for (let i = this.powerItems.length - 1; i >= 0; i -= 1) {
+        const item = this.powerItems[i];
+        if (item.collected || dist2(item, this.player) >= (item.r + this.player.r + 7) ** 2) continue;
+        this.collectPowerItem(item);
+        this.powerItems.splice(i, 1);
+      }
+    }
+
+    collectPowerItem(item) {
+      if (item.collected) return false;
+      item.collected = true;
+      const oldStage = this.power.stage;
+      const gained = this.power.add(item.amount);
+      const stageChanged = this.power.stage > oldStage;
+
+      if (gained === 0) {
+        addScore(this, item.amount >= 5 ? 2000 : 500);
+        this.state.showMessage("POWER MAX BONUS", 75);
+      } else {
+        this.syncFollowers();
+        this.state.showMessage(stageChanged ? `POWER UP！ 随履 ${this.power.stage}足` : `POWER UP +${gained}`, 90);
+        this.powerUpFlash = stageChanged ? 24 : 12;
+      }
+
+      this.audio.playPowerItem(item.amount, stageChanged);
+      this.spawnBurst(item.x, item.y, stageChanged ? "#fff0a8" : "#8eeeff", stageChanged ? 22 : 12);
+      return true;
     }
 
     destroyEnemy(enemy) {
@@ -2509,7 +2555,22 @@
       if (this.state.mode === "gameover") this.drawGameOverMenu();
       if (this.state.mode === "clear") this.drawResult("花粉、滅殺完了！", "スコア " + this.score.value);
       this.drawPlayerSpellCutin();
+      this.drawPowerUpFlash();
       this.dialogue.draw(ctx);
+    }
+
+    drawPowerUpFlash() {
+      if (this.powerUpFlash <= 0) return;
+      const progress = this.powerUpFlash / 24;
+      ctx.save();
+      ctx.fillStyle = `rgba(137, 239, 255, ${progress * 0.14})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = Math.min(1, progress * 1.8);
+      ctx.fillStyle = "#f2ffff";
+      ctx.font = "900 30px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("POWER UP", W / 2, H * 0.42);
+      ctx.restore();
     }
 
     drawPlayerSpellEffects() {
@@ -2661,10 +2722,28 @@
       ctx.font = "700 13px system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.fillText(`履技 x ${this.playerSpellCount}`, 12, 55);
-      ctx.fillStyle = "#9cefff";
-      ctx.fillText(`履力 ${this.power.label}  随履 x ${this.followers.length}`, 12, 74);
       ctx.textAlign = "right";
       ctx.fillText(`CP ${this.checkpoints.current}  CONT ${this.continueCount}`, W - 12, 55);
+
+      const powerBarX = 12;
+      const powerBarY = 64;
+      const powerBarW = 146;
+      const powerRatio = this.power.value / this.power.max;
+      ctx.fillStyle = "rgba(8, 18, 15, 0.78)";
+      ctx.fillRect(powerBarX, powerBarY, powerBarW, 16);
+      const powerGradient = ctx.createLinearGradient(powerBarX, 0, powerBarX + powerBarW, 0);
+      powerGradient.addColorStop(0, "#74dfff");
+      powerGradient.addColorStop(0.68, "#73f1c5");
+      powerGradient.addColorStop(1, "#ffe477");
+      ctx.fillStyle = powerGradient;
+      ctx.fillRect(powerBarX + 1, powerBarY + 1, (powerBarW - 2) * powerRatio, 14);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.52)";
+      ctx.strokeRect(powerBarX, powerBarY, powerBarW, 16);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 10px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      const powerStageLabel = this.power.stage >= 4 ? "POWER MAX" : `POWER ${this.power.stage}`;
+      ctx.fillText(`${powerStageLabel}  ${this.power.label}`, powerBarX + powerBarW / 2, powerBarY + 12);
 
       if (this.boss && this.boss.entered && this.state.mode === "stage") {
         ctx.fillStyle = "rgba(10, 25, 17, 0.72)";
@@ -2675,11 +2754,11 @@
           const card = this.boss.currentCard;
           const rest = Math.max(0, Math.ceil((card.duration - card.age) / 60));
           ctx.fillStyle = "rgba(8, 18, 15, 0.76)";
-          ctx.fillRect(78, 62, W - 156, 28);
+          ctx.fillRect(78, 88, W - 156, 28);
           ctx.fillStyle = "#fff1a8";
           ctx.font = "800 15px system-ui, sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText(`${card.name}  ${rest}`, W / 2, 82);
+          ctx.fillText(`${card.name}  ${rest}`, W / 2, 108);
         }
       }
 

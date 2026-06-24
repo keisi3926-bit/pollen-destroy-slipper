@@ -105,7 +105,7 @@ const sandbox = {
   },
   fetch: async () => ({
     ok: true,
-    json: async () => ({ version: "0.13.0", updates: [] }),
+    json: async () => ({ version: "0.14.0", updates: [] }),
   }),
   caches: { keys: async () => [] },
   requestAnimationFrame() {},
@@ -195,6 +195,42 @@ game.endPlayerSpell();
 game.powerItems = [];
 game.destroyEnemy({ type: "large", x: 200, y: 200, destroyed: false, hp: 1, scoreValue: 1000 });
 assert.ok(game.powerItems.length >= 1, "large pollen should always drop a power item");
+const collectible = game.powerItems[0];
+collectible.x = game.player.x;
+collectible.y = game.player.y;
+game.power.value = 0;
+let powerSoundHook = null;
+game.audio.onPowerItem = (detail) => {
+  powerSoundHook = detail;
+};
+game.resolveCollisions();
+assert.equal(game.powerItems.includes(collectible), false, "collected power item should be removed immediately");
+assert.equal(collectible.collected, true, "collected flag should be set");
+assert.equal(game.power.value, 1, "power value should increase once");
+assert.equal(game.followers.length, 1, "first power stage should deploy one follower");
+assert.equal(powerSoundHook.amount, 1, "power item sound hook should receive item amount");
+assert.equal(powerSoundHook.stageChanged, true, "power item sound hook should receive stage change state");
+assert.equal(game.collectPowerItem(collectible), false, "same power item must not be collected twice");
+assert.equal(game.power.value, 1, "duplicate collection must not increase power");
+
+const shotCounts = [];
+for (let stage = 0; stage <= 4; stage += 1) {
+  const shots = [];
+  game.player.shoot(shots, stage);
+  shotCounts.push(shots.length);
+}
+assert.deepEqual(shotCounts, [1, 2, 3, 3, 5], "shot count should visibly increase by power stage");
+
+game.powerItems = [];
+game.destroyEnemy({ type: "large", x: game.player.x, y: game.player.y, destroyed: false, hp: 1, scoreValue: 1000 });
+const maxItem = game.powerItems[0];
+game.powerItems = [maxItem];
+game.power.value = game.power.max;
+const maxScoreBefore = game.score.value;
+game.resolveCollisions();
+assert.equal(game.power.value, game.power.max, "power should never exceed maximum");
+assert.ok(game.score.value > maxScoreBefore, "power item at maximum should convert to score");
+assert.equal(game.powerItems.length, 0, "max-power item should also be removed immediately");
 
 game.dialogue.start("scene_boss");
 assert.equal(game.dialogue.resolvePortraitLine("left").portrait, "player.png");
