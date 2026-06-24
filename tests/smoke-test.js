@@ -20,8 +20,10 @@ const drawingContext = new Proxy({
 });
 
 function createElement(id = "") {
+  const listeners = new Map();
   return {
     id,
+    listeners,
     classList: {
       values: new Set(),
       add(value) { this.values.add(value); },
@@ -42,7 +44,13 @@ function createElement(id = "") {
     innerHTML: "",
     width: id === "gameCanvas" ? 450 : 0,
     height: id === "gameCanvas" ? 800 : 0,
-    addEventListener() {},
+    addEventListener(name, handler) {
+      if (!listeners.has(name)) listeners.set(name, []);
+      listeners.get(name).push(handler);
+    },
+    dispatch(name, event = {}) {
+      for (const handler of listeners.get(name) || []) handler(event);
+    },
     setAttribute(name, value) { this.attributes[name] = value; },
     appendChild() {},
     getBoundingClientRect() { return { left: 0, top: 0, width: 450, height: 800 }; },
@@ -105,7 +113,7 @@ const sandbox = {
   },
   fetch: async () => ({
     ok: true,
-    json: async () => ({ version: "0.14.0", updates: [] }),
+    json: async () => ({ version: "0.15.0", updates: [] }),
   }),
   caches: { keys: async () => [] },
   requestAnimationFrame() {},
@@ -133,6 +141,43 @@ assert.equal(updatePanel.classList.contains("is-closed"), true, "mobile update p
 game.start(false, false);
 game.dialogue.active = false;
 game.playerSpellCooldown = 0;
+assert.equal(game.player.hitPoint.y, game.player.y - 15, "player hit point should be centered on the chest");
+game.life.lives = 3;
+game.player.invincible = 0;
+game.enemyBullets = [{ x: game.player.hitPoint.x, y: game.player.hitPoint.y, r: 1 }];
+game.resolveCollisions();
+assert.equal(game.life.lives, 2, "enemy bullet collision should use the chest hit point");
+game.life.lives = 3;
+game.player.invincible = 0;
+game.enemyBullets = [];
+
+const canvas = elements.get("gameCanvas");
+canvas.dispatch("pointermove", {
+  pointerType: "mouse",
+  clientX: 330,
+  clientY: 500,
+});
+assert.equal(game.input.mouseActive, true, "mouse movement should enable mouse control");
+assert.equal(game.input.touchX, 330, "mouse movement should update target x");
+assert.equal(game.input.touchY, 500, "mouse movement should update target y");
+
+let contextPrevented = false;
+canvas.dispatch("contextmenu", {
+  preventDefault() { contextPrevented = true; },
+});
+assert.equal(contextPrevented, true, "canvas context menu should be suppressed");
+
+let rightClickPrevented = false;
+canvas.dispatch("pointerdown", {
+  button: 2,
+  pointerType: "mouse",
+  preventDefault() { rightClickPrevented = true; },
+});
+assert.equal(rightClickPrevented, true, "right click should be consumed by the game");
+assert.equal(game.playerSpellCount, 2, "right click should activate Slipper Nova once");
+game.endPlayerSpell();
+game.playerSpellCooldown = 0;
+game.playerSpellCount = 3;
 
 for (let i = 0; i < 3; i += 1) {
   game.activatePlayerSpell();

@@ -31,7 +31,7 @@
   const PLAYER_ASSET = "assets/characters/player.png";
   const BOSS_ASSET = "assets/characters/suginomikoto.png";
   const POLLEN_ENEMY_ASSET = "assets/enemies/pollen_enemies.png";
-  const APP_VERSION = "0.14.0";
+  const APP_VERSION = "0.15.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -502,6 +502,7 @@
       this.x = W / 2;
       this.y = H - 90;
       this.r = 5;
+      this.hitOffsetY = -15;
       this.cooldown = 0;
       this.invincible = 0;
       this.image = new Image();
@@ -521,6 +522,10 @@
       this.positionHistory = Array.from({ length: 30 }, () => ({ x: this.x, y: this.y }));
     }
 
+    get hitPoint() {
+      return { x: this.x, y: this.y + this.hitOffsetY };
+    }
+
     update(input, bullets, game) {
       const slow = input.slow || input.gpSlow;
       const speed = slow ? 2.5 : 5;
@@ -532,7 +537,7 @@
       if (input.up || input.gpUp) my -= 1;
       if (input.down || input.gpDown) my += 1;
 
-      if (input.touchActive) {
+      if (input.touchActive || input.mouseActive) {
         this.x += (input.touchX - this.x) * (slow ? 0.15 : 0.26);
         this.y += (input.touchY - this.y) * (slow ? 0.15 : 0.26);
       } else if (mx || my) {
@@ -588,7 +593,7 @@
       game.state.shake = 18;
       this.invincible = 130;
       game.cancelEnemyBullets(true);
-      game.spawnBurst(this.x, this.y, "#eafcff", 18);
+      game.spawnBurst(this.hitPoint.x, this.hitPoint.y, "#eafcff", 18);
       game.state.showMessage(hadLives ? "MISS - 復帰！" : "GAME OVER", 90);
       if (!hadLives) game.openGameOverMenu();
     }
@@ -622,7 +627,7 @@
 
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(0, 3, this.r, 0, TAU);
+      ctx.arc(0, this.hitOffsetY, this.r, 0, TAU);
       ctx.fill();
       ctx.restore();
     }
@@ -650,7 +655,7 @@
 
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(0, 3, this.r, 0, TAU);
+      ctx.arc(0, this.hitOffsetY, this.r, 0, TAU);
       ctx.fill();
     }
   }
@@ -806,25 +811,25 @@
   const POLLEN_SPRITES = {
     large: {
       sx: 0,
-      sy: 0.14,
-      sw: 0.34,
-      sh: 0.5,
-      displayWidth: 92,
-      displayHeight: 92,
+      sy: 0,
+      sw: 1 / 3,
+      sh: 1,
+      displayWidth: 96,
+      displayHeight: 96,
     },
     medium: {
-      sx: 0.33,
-      sy: 0.24,
-      sw: 0.34,
-      sh: 0.42,
+      sx: 1 / 3,
+      sy: 0,
+      sw: 1 / 3,
+      sh: 1,
       displayWidth: 66,
       displayHeight: 66,
     },
     small: {
-      sx: 0.66,
-      sy: 0.31,
-      sw: 0.25,
-      sh: 0.34,
+      sx: 2 / 3,
+      sy: 0,
+      sw: 1 / 3,
+      sh: 1,
       displayWidth: 42,
       displayHeight: 42,
     },
@@ -906,7 +911,8 @@
 
     fire(game) {
       const config = POLLEN_ENEMY_CONFIG[this.type];
-      const aim = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+      const playerHit = game.player.hitPoint;
+      const aim = Math.atan2(playerHit.y - this.y, playerHit.x - this.x);
       if (this.type === "small") {
         const speed = game.difficulty.scaleSpeed(1.72);
         game.spawnEnemyBullet(new Bullet(this.x, this.y, Math.cos(aim) * speed, Math.sin(aim) * speed, 5, "enemy", "#f4c64e"));
@@ -1019,7 +1025,8 @@
 
     aimedPollen(boss, game, card) {
       if (card.age % game.difficulty.scaleFireInterval(54) !== 1) return;
-      const base = Math.atan2(game.player.y - boss.y, game.player.x - boss.x);
+      const playerHit = game.player.hitPoint;
+      const base = Math.atan2(playerHit.y - boss.y, playerHit.x - boss.x);
       const side = game.difficulty.current === "easy" ? 1 : game.difficulty.current === "normal" ? 1 : 2;
       for (let i = -side; i <= side; i += 1) {
         const a = base + i * 0.16;
@@ -1250,9 +1257,9 @@
 
       ctx.save();
       ctx.beginPath();
-      ctx.ellipse(0, 5, 54, 72, 0, 0, TAU);
+      ctx.roundRect(-50, -72, 100, 144, 12);
       ctx.clip();
-      ctx.drawImage(this.image, 210, 0, 615, 1536, -42, -70, 84, 142);
+      ctx.drawImage(this.image, 0, 0, 1024, 1536, -48, -72, 96, 144);
       ctx.restore();
 
       ctx.fillStyle = "rgba(255, 248, 181, 0.88)";
@@ -1707,6 +1714,7 @@
         gpFire: false,
         gpSlow: false,
         touchActive: false,
+        mouseActive: false,
         touchX: W / 2,
         touchY: H - 90,
       };
@@ -1753,6 +1761,9 @@
       this.enemyBulletSpawnHistory = [];
       this.spellKeyHeld = false;
       this.spellPointerHeld = false;
+      this.input.touchActive = false;
+      this.input.mouseActive = false;
+      this.input.fire = false;
       if (keepScore) this.power.value = preservedPower;
       else this.power.reset();
       this.syncFollowers();
@@ -1782,6 +1793,9 @@
       this.playerSpellCooldown = 0;
       this.spellKeyHeld = false;
       this.spellPointerHeld = false;
+      this.input.touchActive = false;
+      this.input.mouseActive = false;
+      this.input.fire = false;
       this.state.time = 0;
       this.audio.stopStage();
     }
@@ -1789,6 +1803,7 @@
     startDialogue(sceneName, onComplete = null) {
       this.input.fire = false;
       this.input.touchActive = false;
+      this.input.mouseActive = false;
       this.dialogue.start(sceneName, onComplete);
     }
 
@@ -1849,25 +1864,54 @@
       });
 
       canvas.addEventListener("pointerdown", (e) => {
+        if (e.button === 2) {
+          e.preventDefault();
+          if (!this.dialogue.active) this.activatePlayerSpell();
+          return;
+        }
         if (this.handleCanvasTap(e)) return;
         if (this.dialogue.active) {
           this.dialogue.advance();
           return;
         }
         if (this.state.mode !== "stage") return;
-        this.input.touchActive = true;
+        if (e.pointerType === "mouse") {
+          this.input.mouseActive = true;
+          this.input.fire = true;
+        } else {
+          this.input.touchActive = true;
+        }
         this.setTouch(e);
         canvas.setPointerCapture(e.pointerId);
       });
       canvas.addEventListener("pointermove", (e) => {
+        if (e.pointerType === "mouse" && this.state.mode === "stage" && !this.dialogue.active) {
+          this.input.mouseActive = true;
+          this.setTouch(e);
+          return;
+        }
         if (!this.input.touchActive) return;
         this.setTouch(e);
       });
-      canvas.addEventListener("pointerup", () => {
+      canvas.addEventListener("pointerup", (e) => {
+        if (e.pointerType === "mouse") this.input.fire = false;
+        else this.input.touchActive = false;
+      });
+      canvas.addEventListener("pointercancel", (e) => {
+        if (e.pointerType === "mouse") {
+          this.input.fire = false;
+          this.input.mouseActive = false;
+        }
         this.input.touchActive = false;
       });
-      canvas.addEventListener("pointercancel", () => {
-        this.input.touchActive = false;
+      canvas.addEventListener("pointerleave", (e) => {
+        if (e.pointerType === "mouse") {
+          this.input.fire = false;
+          this.input.mouseActive = false;
+        }
+      });
+      canvas.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
       });
 
       slowButton.addEventListener("pointerdown", (e) => {
@@ -2396,7 +2440,8 @@
       this.lasers.forEach((l) => {
         l.age += 1;
         if (l.age > l.warn && l.age < l.warn + l.live) {
-          if (Math.abs(this.player.x - l.x) < l.width + this.player.r && this.player.y > 38) this.player.hit(this);
+          const playerHit = this.player.hitPoint;
+          if (Math.abs(playerHit.x - l.x) < l.width + this.player.r && playerHit.y > 38) this.player.hit(this);
         }
       });
       this.lasers = this.lasers.filter((l) => l.age < l.warn + l.live);
@@ -2420,7 +2465,7 @@
       }
 
       for (const b of this.enemyBullets) {
-        if (dist2(b, this.player) < (b.r + this.player.r) ** 2) {
+        if (dist2(b, this.player.hitPoint) < (b.r + this.player.r) ** 2) {
           b.y = H + 100;
           this.player.hit(this);
         }
@@ -2428,7 +2473,7 @@
 
       for (const e of this.enemies) {
         if (e.destroyed) continue;
-        if (dist2(e, this.player) < (e.r + this.player.r) ** 2) {
+        if (dist2(e, this.player.hitPoint) < (e.r + this.player.r) ** 2) {
           e.hp = 0;
           e.destroyed = true;
           this.spawnBurst(e.x, e.y, "#f6d94e", 12);
@@ -2830,7 +2875,8 @@
       if (this.titlePanel === "how") {
         ctx.fillText("移動: 矢印/WASD/ドラッグ  低速: Shift/低速ボタン", W / 2, 610);
         ctx.fillText("ショット: Z/Space  履技: X/履技ボタン  ポーズ: Esc/P/MENU", W / 2, 634);
-        ctx.fillText("Xbox: 左スティック/D-pad移動  Aショット/決定  X履技  LB/RB低速  Menuポーズ", W / 2, 658);
+        ctx.fillText("マウス: 移動  左ボタンショット  右クリック履技", W / 2, 658);
+        ctx.fillText("Xbox: 左スティック/D-pad移動  Aショット/決定  X履技  LB/RB低速", W / 2, 682);
       } else if (this.titlePanel === "score") {
         const save = this.save.data;
         ctx.fillText(`EASY ${save.easy.highScore} / CP${save.easy.maxCheckpoint} / ${save.easy.cleared ? "CLEAR" : "未クリア"}`, W / 2, 598);
