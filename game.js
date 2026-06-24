@@ -89,7 +89,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.22.1";
+  const APP_VERSION = "0.22.2";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -663,7 +663,13 @@
       if (this.invincible > 0 || game.state.mode !== "stage") return;
       const hadLives = game.life.loseLife();
       game.playerSpellCount = 3;
-      game.power.loseOnMiss();
+      if (game.continueFullPower) {
+        game.power.reset();
+        game.continueFullPower = false;
+      } else {
+        game.power.loseOnMiss();
+      }
+      game.syncFollowers();
       game.missedDuringCard = true;
       if (game.boss?.currentCard?.survival) game.boss.currentCard.failed = true;
       game.state.shake = 18;
@@ -2094,6 +2100,7 @@
       this.continueCount = 0;
       this.missedDuringCard = false;
       this.pendingBossDefeat = 0;
+      this.continueFullPower = false;
       this.spawnedWaves = new Set();
       this.currentWave = 0;
       this.debugVisible = false;
@@ -2171,6 +2178,7 @@
       this.grazeFlash = 0;
       this.missedDuringCard = false;
       this.pendingBossDefeat = 0;
+      this.continueFullPower = false;
       this.spawnedWaves = new Set(
         STAGE_WAVES.map((wave, index) => ({ wave, index })).filter(({ wave }) => wave.time <= startTime).map(({ index }) => index)
       );
@@ -2222,6 +2230,14 @@
       this.input.mouseActive = false;
       this.input.fire = false;
       this.state.time = 0;
+      this.state.shake = 0;
+      this.state.message = "";
+      this.state.messageTimer = 0;
+      this.state.bossNameTimer = 0;
+      this.particles = [];
+      this.powerUpFlash = 0;
+      this.grazeFlash = 0;
+      document.body.classList.remove("dialogue-active");
       this.audio.stopStage();
     }
 
@@ -2565,6 +2581,14 @@
       this.continueCount += 1;
       this.score.reduceForContinue();
       this.start(true, true);
+      this.power.value = this.power.max;
+      this.continueFullPower = true;
+      this.syncFollowers();
+      this.powerUpFlash = 38;
+      this.player.invincible = Math.max(this.player.invincible, 180);
+      this.state.showMessage("CONTINUE - POWER MAX！", 150);
+      this.spawnBurst(this.player.x, this.player.y, "#ffe477", 42);
+      this.audio.playSE("power_max", { maxVoices: 1 });
     }
 
     handleCanvasTap(e) {

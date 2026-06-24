@@ -1,4 +1,4 @@
-const CACHE_VERSION = "pollen-destroy-slipper-v0.22.1";
+const CACHE_VERSION = "pollen-destroy-slipper-v0.22.2";
 const APP_SHELL = [
   "./",
   "index.html",
