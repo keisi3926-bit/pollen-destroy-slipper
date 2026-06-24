@@ -89,7 +89,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.22.0";
+  const APP_VERSION = "0.22.1";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -1103,6 +1103,7 @@
       this.frenzyAnnounced = false;
       this.failed = false;
       this.lastCountdownSecond = null;
+      this.resolved = false;
       this.onStart = onStart;
       this.onUpdate = onUpdate;
       this.onEnd = onEnd;
@@ -1116,6 +1117,7 @@
       this.frenzyAnnounced = false;
       this.failed = false;
       this.lastCountdownSecond = null;
+      this.resolved = false;
       if (this.onStart) this.onStart(boss, game, this);
     }
 
@@ -1353,6 +1355,8 @@
     nextCard(game, reason = this.currentCard?.survival ? "survival-timeout" : "hp-break") {
       if (!this.currentCard) return;
       const clearedCard = this.currentCard;
+      if (clearedCard.resolved) return;
+      clearedCard.resolved = true;
       const hpBreak = reason === "hp-break";
       const survivalEnd = reason === "survival-timeout";
       const survivalSuccess = survivalEnd && !clearedCard.failed;
@@ -1387,8 +1391,8 @@
     }
 
     takeDamage(game, amount) {
-      if (!this.currentCard || this.defeated || !this.entered) return;
-      if (this.currentCard.survival) return;
+      if (!this.currentCard || this.defeated || this.transitioning || !this.entered) return;
+      if (this.currentCard.survival || this.currentCard.resolved) return;
       this.currentCard.hp -= amount;
       this.hp = this.currentCard.hp;
       addScore(game, amount * SCORE_VALUES.bossDamage);
@@ -3106,9 +3110,12 @@
     }
 
     spawnBossPhaseBonus(x, y) {
+      // フェーズ終了処理が重複しても、アイテム数が暴走しないための最終防壁。
+      const activeItemCount = this.powerItems.length + this.pointItems.length;
+      if (activeItemCount >= 64) return;
       const powerCount = 8;
       const pointCount = 16;
-      const total = powerCount + pointCount;
+      const total = Math.min(powerCount + pointCount, 64 - activeItemCount);
       for (let i = 0; i < total; i += 1) {
         const angle = (i / total) * TAU + Math.random() * 0.14;
         const speed = 1.7 + Math.random() * 1.8;
@@ -3119,7 +3126,7 @@
           drag: 0.992,
           autoCollectAt: 92 + Math.floor(Math.random() * 24),
         };
-        if (i < powerCount) {
+        if (i < Math.min(powerCount, total)) {
           const amount = i === 0 ? POWER_CONFIG.largePValue : POWER_CONFIG.smallPValue;
           this.powerItems.push(new PowerItem(x, y, amount, options));
         } else {
