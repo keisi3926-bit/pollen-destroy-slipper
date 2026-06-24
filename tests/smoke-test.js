@@ -113,7 +113,7 @@ const sandbox = {
   },
   fetch: async () => ({
     ok: true,
-    json: async () => ({ version: "0.15.0", updates: [] }),
+    json: async () => ({ version: "0.16.0", updates: [] }),
   }),
   caches: { keys: async () => [] },
   requestAnimationFrame() {},
@@ -238,9 +238,22 @@ assert.equal(game.getFollowerSpellBeams().length, 4, "followers should add four 
 game.endPlayerSpell();
 
 game.powerItems = [];
+game.pointItems = [];
 game.destroyEnemy({ type: "large", x: 200, y: 200, destroyed: false, hp: 1, scoreValue: 1000 });
 assert.ok(game.powerItems.length >= 1, "large pollen should always drop a power item");
+assert.equal(game.pointItems.length, 1, "large pollen should drop one point item");
 const collectible = game.powerItems[0];
+collectible.x = 60;
+collectible.y = 420;
+game.player.x = 220;
+game.player.y = 160;
+const autoCollectDistance = Math.hypot(collectible.x - game.player.hitPoint.x, collectible.y - game.player.hitPoint.y);
+collectible.update(game.player);
+assert.equal(collectible.autoCollect, true, "top 20 percent should enable automatic item collection");
+assert.ok(
+  Math.hypot(collectible.x - game.player.hitPoint.x, collectible.y - game.player.hitPoint.y) < autoCollectDistance,
+  "automatically collected item should move toward the player"
+);
 collectible.x = game.player.x;
 collectible.y = game.player.y;
 game.power.value = 0;
@@ -267,8 +280,12 @@ for (let stage = 0; stage <= 4; stage += 1) {
 assert.deepEqual(shotCounts, [1, 2, 3, 3, 5], "shot count should visibly increase by power stage");
 
 game.powerItems = [];
+game.pointItems = [];
 game.destroyEnemy({ type: "large", x: game.player.x, y: game.player.y, destroyed: false, hp: 1, scoreValue: 1000 });
 const maxItem = game.powerItems[0];
+const pointItem = game.pointItems[0];
+pointItem.x = 60;
+pointItem.y = 420;
 game.powerItems = [maxItem];
 game.power.value = game.power.max;
 const maxScoreBefore = game.score.value;
@@ -276,6 +293,14 @@ game.resolveCollisions();
 assert.equal(game.power.value, game.power.max, "power should never exceed maximum");
 assert.ok(game.score.value > maxScoreBefore, "power item at maximum should convert to score");
 assert.equal(game.powerItems.length, 0, "max-power item should also be removed immediately");
+
+pointItem.x = game.player.x;
+pointItem.y = game.player.y;
+const pointScoreBefore = game.score.value;
+game.resolveCollisions();
+assert.equal(game.pointItems.length, 0, "point item should be removed immediately after collection");
+assert.equal(pointItem.collected, true, "point item should set collected flag");
+assert.equal(game.score.value, pointScoreBefore + pointItem.scoreValue, "point item should add its score value");
 
 game.dialogue.start("scene_boss");
 assert.equal(game.dialogue.resolvePortraitLine("left").portrait, "player.png");

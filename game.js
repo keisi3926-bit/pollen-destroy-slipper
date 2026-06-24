@@ -31,7 +31,7 @@
   const PLAYER_ASSET = "assets/characters/player.png";
   const BOSS_ASSET = "assets/characters/suginomikoto.png";
   const POLLEN_ENEMY_ASSET = "assets/enemies/pollen_enemies.png";
-  const APP_VERSION = "0.15.0";
+  const APP_VERSION = "0.16.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -660,28 +660,40 @@
     }
   }
 
-  class PowerItem {
-    constructor(x, y, amount = 1) {
+  class CollectibleItem {
+    constructor(x, y, radius, fallSpeed) {
       this.x = x;
       this.y = y;
-      this.amount = amount;
-      this.r = amount >= 5 ? 13 : 9;
+      this.r = radius;
+      this.fallSpeed = fallSpeed;
       this.age = 0;
       this.collected = false;
+      this.autoCollect = false;
     }
 
     update(player) {
       this.age += 1;
-      this.y += this.amount >= 5 ? 1.05 : 1.3;
-      if (player.y < 170 && this.y < H - 80) {
-        const angle = Math.atan2(player.y - this.y, player.x - this.x);
-        this.x += Math.cos(angle) * 4.8;
-        this.y += Math.sin(angle) * 4.8;
+      if (player.y <= H * 0.2) this.autoCollect = true;
+      if (this.autoCollect) {
+        const target = player.hitPoint;
+        const angle = Math.atan2(target.y - this.y, target.x - this.x);
+        const speed = 7.5 + Math.min(5, this.age * 0.035);
+        this.x += Math.cos(angle) * speed;
+        this.y += Math.sin(angle) * speed;
+      } else {
+        this.y += this.fallSpeed;
       }
     }
 
     offscreen() {
       return this.y > H + 30;
+    }
+  }
+
+  class PowerItem extends CollectibleItem {
+    constructor(x, y, amount = 1) {
+      super(x, y, amount >= 5 ? 13 : 9, amount >= 5 ? 1.05 : 1.3);
+      this.amount = amount;
     }
 
     draw(ctx) {
@@ -701,6 +713,33 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("P", 0, 1);
+      ctx.restore();
+    }
+  }
+
+  class PointItem extends CollectibleItem {
+    constructor(x, y, scoreValue) {
+      super(x, y, scoreValue >= 1200 ? 12 : 9, scoreValue >= 1200 ? 0.95 : 1.2);
+      this.scoreValue = scoreValue;
+    }
+
+    draw(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(Math.PI / 4 + Math.sin(this.age * 0.08) * 0.08);
+      const pulse = 1 + Math.sin(this.age * 0.16) * 0.07;
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = this.scoreValue >= 1200 ? "#b86cff" : "#d58cff";
+      ctx.strokeStyle = "#fff0ff";
+      ctx.lineWidth = 2;
+      ctx.fillRect(-this.r * 0.72, -this.r * 0.72, this.r * 1.44, this.r * 1.44);
+      ctx.strokeRect(-this.r * 0.72, -this.r * 0.72, this.r * 1.44, this.r * 1.44);
+      ctx.rotate(-Math.PI / 4 - Math.sin(this.age * 0.08) * 0.08);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `900 ${this.scoreValue >= 1200 ? 12 : 10}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("点", 0, 1);
       ctx.restore();
     }
   }
@@ -1677,6 +1716,7 @@
       this.playerBullets = [];
       this.enemyBullets = [];
       this.powerItems = [];
+      this.pointItems = [];
       this.followers = [];
       this.particles = [];
       this.lasers = [];
@@ -1742,6 +1782,7 @@
       this.playerBullets = [];
       this.enemyBullets = [];
       this.powerItems = [];
+      this.pointItems = [];
       this.followers = [];
       this.particles = [];
       this.lasers = [];
@@ -1784,6 +1825,7 @@
       this.playerBullets = [];
       this.enemyBullets = [];
       this.powerItems = [];
+      this.pointItems = [];
       this.followers = [];
       this.lasers = [];
       this.boss = null;
@@ -2273,6 +2315,7 @@
 
       this.enemies.forEach((e) => e.update(this));
       this.powerItems.forEach((item) => item.update(this.player));
+      this.pointItems.forEach((item) => item.update(this.player));
       this.playerBullets.forEach((b) => b.update());
       this.enemyBullets.forEach((b) => b.update());
       this.updateLasers();
@@ -2284,6 +2327,7 @@
       this.playerBullets = this.playerBullets.filter((b) => !b.offscreen());
       this.enemyBullets = this.enemyBullets.filter((b) => !b.offscreen());
       this.powerItems = this.powerItems.filter((item) => !item.collected && !item.offscreen());
+      this.pointItems = this.pointItems.filter((item) => !item.collected && !item.offscreen());
       this.enemyBulletSpawnHistory.push(this.enemyBulletsSpawnedFrame);
       if (this.enemyBulletSpawnHistory.length > 60) this.enemyBulletSpawnHistory.shift();
     }
@@ -2386,7 +2430,6 @@
         this.boss = new Boss();
         this.enemies = [];
         this.enemyBullets = [];
-        this.powerItems = [];
         this.state.showMessage("花粉濃度、異常上昇", 150);
       }
     }
@@ -2488,6 +2531,12 @@
         this.collectPowerItem(item);
         this.powerItems.splice(i, 1);
       }
+      for (let i = this.pointItems.length - 1; i >= 0; i -= 1) {
+        const item = this.pointItems[i];
+        if (item.collected || dist2(item, this.player) >= (item.r + this.player.r + 7) ** 2) continue;
+        this.collectPointItem(item);
+        this.pointItems.splice(i, 1);
+      }
     }
 
     collectPowerItem(item) {
@@ -2511,6 +2560,14 @@
       return true;
     }
 
+    collectPointItem(item) {
+      if (item.collected) return false;
+      item.collected = true;
+      addScore(this, item.scoreValue);
+      this.spawnBurst(item.x, item.y, "#d58cff", 10);
+      return true;
+    }
+
     destroyEnemy(enemy) {
       if (enemy.destroyed) return;
       enemy.destroyed = true;
@@ -2518,6 +2575,7 @@
       addScore(this, enemy.scoreValue);
       this.spawnBurst(enemy.x, enemy.y, "#f6d94e", enemy.type === "large" ? 24 : 14);
       this.dropPowerItem(enemy);
+      this.dropPointItem(enemy);
     }
 
     dropPowerItem(enemy) {
@@ -2528,6 +2586,12 @@
         this.powerItems.push(new PowerItem(enemy.x, enemy.y, 1));
         if (roll < 0.2) this.powerItems.push(new PowerItem(enemy.x + 12, enemy.y, 5));
       }
+    }
+
+    dropPointItem(enemy) {
+      const scoreValue = enemy.type === "large" ? 1200 : enemy.type === "medium" ? 500 : 200;
+      const offsetX = enemy.type === "large" ? -15 : 0;
+      this.pointItems.push(new PointItem(enemy.x + offsetX, enemy.y, scoreValue));
     }
 
     spawnBurst(x, y, color, count) {
@@ -2583,6 +2647,7 @@
       this.lasers.forEach((l) => this.drawLaser(l));
       this.enemies.forEach((e) => e.draw(ctx));
       this.powerItems.forEach((item) => item.draw(ctx));
+      this.pointItems.forEach((item) => item.draw(ctx));
       if (this.boss) this.boss.draw(ctx);
       this.drawPlayerSpellEffects();
       this.playerBullets.forEach((b) => b.draw(ctx));
