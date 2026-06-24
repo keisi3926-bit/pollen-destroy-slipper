@@ -148,12 +148,36 @@ body {
     width: min(270px, calc(100vw - 96px));
   }
 
+  .update-panel.is-closed {
+    width: auto;
+  }
+
+  .update-panel.is-closed .update-panel__head {
+    min-height: 36px;
+    padding: 4px;
+  }
+
+  .update-panel.is-closed .update-panel__head > div {
+    display: none;
+  }
+
+  .update-panel.is-closed .update-panel__toggle {
+    width: 52px;
+    min-height: 30px;
+  }
+
   .update-panel h1 {
     font-size: 14px;
   }
 
   .update-list {
     max-height: 86px;
+  }
+
+  .menu-button {
+    min-width: 56px;
+    height: 34px;
+    font-size: 11px;
   }
 }
 

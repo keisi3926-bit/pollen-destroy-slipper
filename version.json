@@ -1,8 +1,18 @@
 {
-  "version": "0.10.0",
+  "version": "0.12.0",
   "build": "2026-06-24",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.12.0",
+      "date": "2026-06-24",
+      "summary": "花粉雑魚3種を画像化。奥義入力と終了状態を安定化し、明示ウェーブ進行・難易度別敵弾上限・F3デバッグ表示を追加。"
+    },
+    {
+      "version": "0.11.0",
+      "date": "2026-06-24",
+      "summary": "スマホの更新欄を初期折りたたみに変更。会話中は左右の立ち絵を維持し、被弾で残機を失った際に履技を3回まで補充。"
+    },
     {
       "version": "0.10.0",
       "date": "2026-06-24",
@@ -75,6 +85,7 @@
     "assets/audio/boss_suginomikoto.mp3",
     "assets/characters/player.png",
     "assets/characters/suginomikoto.png",
+    "assets/enemies/pollen_enemies.png",
     "assets/characters/.gitkeep"
   ]
 }

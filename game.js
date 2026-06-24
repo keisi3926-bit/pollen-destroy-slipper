@@ -30,7 +30,8 @@
   const BGM_BOSS = "assets/audio/boss_suginomikoto.mp3";
   const PLAYER_ASSET = "assets/characters/player.png";
   const BOSS_ASSET = "assets/characters/suginomikoto.png";
-  const APP_VERSION = "0.10.0";
+  const POLLEN_ENEMY_ASSET = "assets/enemies/pollen_enemies.png";
+  const APP_VERSION = "0.12.0";
   const INITIAL_CONTINUES = 3;
   const CHECKPOINTS = [
     { id: 0, name: "STAGE START", time: 0 },
@@ -40,7 +41,8 @@
   ];
   const SCORE_VALUES = {
     enemySmall: 100,
-    enemyBig: 300,
+    enemyMedium: 300,
+    enemyLarge: 1000,
     bulletCancel: 10,
     normalBreak: 5000,
     spellBreak: 10000,
@@ -49,6 +51,25 @@
     stageClear: 50000,
     bossDamage: 8,
   };
+  const ENEMY_BULLET_LIMITS = {
+    easy: 95,
+    normal: 150,
+    hard: 250,
+  };
+  const STAGE_WAVES = [
+    { time: 120, pattern: "smallLine" },
+    { time: 390, pattern: "mediumPair" },
+    { time: 670, pattern: "smallSweep" },
+    { time: 960, pattern: "largeEscort" },
+    { time: 1240, pattern: "mediumTrio" },
+    { time: 1530, pattern: "smallCross" },
+    { time: 1840, pattern: "mediumPair" },
+    { time: 2140, pattern: "largeSolo" },
+    { time: 2430, pattern: "smallSweep" },
+    { time: 2700, pattern: "mediumTrio" },
+    { time: 2990, pattern: "largeEscort" },
+    { time: 3240, pattern: "smallFinale" },
+  ];
   const EXTEND_THRESHOLDS = [30000, 80000, 150000];
   const DIFFICULTY_CONFIG = {
     easy: {
@@ -95,7 +116,14 @@
     constructor() {
       this.registration = null;
       this.waitingWorker = null;
+      this.applyResponsiveDefault();
       this.bindUi();
+    }
+
+    applyResponsiveDefault() {
+      if (!window.matchMedia("(max-width: 720px)").matches) return;
+      updatePanel.classList.add("is-closed");
+      updateToggle.setAttribute("aria-expanded", "false");
     }
 
     bindUi() {
@@ -495,6 +523,7 @@
     hit(game) {
       if (this.invincible > 0 || game.state.mode !== "stage") return;
       const hadLives = game.life.loseLife();
+      game.playerSpellCount = 3;
       game.missedDuringCard = true;
       game.state.shake = 18;
       this.invincible = 130;
@@ -622,40 +651,140 @@
     }
   }
 
+  const POLLEN_SPRITES = {
+    large: {
+      sx: 0,
+      sy: 0.14,
+      sw: 0.34,
+      sh: 0.5,
+      displayWidth: 92,
+      displayHeight: 92,
+    },
+    medium: {
+      sx: 0.33,
+      sy: 0.24,
+      sw: 0.34,
+      sh: 0.42,
+      displayWidth: 66,
+      displayHeight: 66,
+    },
+    small: {
+      sx: 0.66,
+      sy: 0.31,
+      sw: 0.25,
+      sh: 0.34,
+      displayWidth: 42,
+      displayHeight: 42,
+    },
+  };
+
+  class PollenSpriteSheet {
+    constructor(src) {
+      this.image = new Image();
+      this.loaded = false;
+      this.failed = false;
+      this.image.onload = () => {
+        this.loaded = true;
+      };
+      this.image.onerror = () => {
+        this.failed = true;
+      };
+      this.image.src = `${src}?v=${APP_VERSION}`;
+    }
+
+    draw(ctx, type) {
+      const sprite = POLLEN_SPRITES[type];
+      if (!sprite || !this.loaded || this.failed) return false;
+      const iw = this.image.width;
+      const ih = this.image.height;
+      ctx.drawImage(
+        this.image,
+        Math.round(iw * sprite.sx),
+        Math.round(ih * sprite.sy),
+        Math.round(iw * sprite.sw),
+        Math.round(ih * sprite.sh),
+        -sprite.displayWidth / 2,
+        -sprite.displayHeight / 2,
+        sprite.displayWidth,
+        sprite.displayHeight
+      );
+      return true;
+    }
+  }
+
+  const pollenSpriteSheet = new PollenSpriteSheet(POLLEN_ENEMY_ASSET);
+  const POLLEN_ENEMY_CONFIG = {
+    small: { radius: 12, hp: 5, speed: 2.15, fireInterval: 155, score: SCORE_VALUES.enemySmall },
+    medium: { radius: 18, hp: 12, speed: 1.3, fireInterval: 132, score: SCORE_VALUES.enemyMedium },
+    large: { radius: 29, hp: 34, speed: 0.78, fireInterval: 112, score: SCORE_VALUES.enemyLarge },
+  };
+
   class Enemy {
-    constructor(x, y, type = "drift") {
+    constructor(x, y, type = "medium", movement = "drift") {
+      const config = POLLEN_ENEMY_CONFIG[type] || POLLEN_ENEMY_CONFIG.medium;
       this.x = x;
       this.y = y;
       this.type = type;
+      this.movement = movement;
       this.age = 0;
-      this.r = type === "big" ? 18 : 13;
-      this.hp = type === "big" ? 18 : 8;
+      this.r = config.radius;
+      this.hp = config.hp;
+      this.speed = config.speed;
+      this.scoreValue = config.score;
       this.baseX = x;
+      this.fireCooldown = 70 + Math.floor(Math.random() * 45);
+      this.destroyed = false;
     }
 
     update(game) {
       this.age += 1;
-      if (this.type === "sine") {
-        this.x = this.baseX + Math.sin(this.age * 0.045) * 70;
-        this.y += 1.35;
-      } else if (this.type === "big") {
-        this.x = this.baseX + Math.sin(this.age * 0.03) * 35;
-        this.y += 0.85;
+      if (this.movement === "sine") {
+        this.x = this.baseX + Math.sin(this.age * 0.045) * (this.type === "small" ? 82 : 62);
+        this.y += this.speed;
+      } else if (this.movement === "zigzag") {
+        this.x = this.baseX + Math.sin(this.age * 0.075) * 48;
+        this.y += this.speed * 1.05;
       } else {
-        this.y += 1.55;
+        this.y += this.speed;
       }
 
-      const rate = game.difficulty.scaleFireInterval(this.type === "big" ? 92 : 132);
-      if (this.age > 70 && this.age % rate === 0) {
-        const a = Math.atan2(game.player.y - this.y, game.player.x - this.x);
-        const speed = game.difficulty.scaleSpeed(this.type === "big" ? 1.85 : 1.65);
-        game.enemyBullets.push(new Bullet(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f4c64e"));
+      this.fireCooldown -= 1;
+      if (this.fireCooldown <= 0 && this.y > 28 && this.y < H - 120) this.fire(game);
+    }
+
+    fire(game) {
+      const config = POLLEN_ENEMY_CONFIG[this.type];
+      const aim = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+      if (this.type === "small") {
+        const speed = game.difficulty.scaleSpeed(1.72);
+        game.spawnEnemyBullet(new Bullet(this.x, this.y, Math.cos(aim) * speed, Math.sin(aim) * speed, 5, "enemy", "#f4c64e"));
+      } else if (this.type === "medium") {
+        const count = game.difficulty.current === "easy" ? 1 : 3;
+        for (let i = 0; i < count; i += 1) {
+          const offset = count === 1 ? 0 : (i - 1) * 0.18;
+          const speed = game.difficulty.scaleSpeed(1.58);
+          game.spawnEnemyBullet(new Bullet(this.x, this.y, Math.cos(aim + offset) * speed, Math.sin(aim + offset) * speed, 5, "enemy", "#f0bd42"));
+        }
+      } else {
+        const count = game.difficulty.scaleCount(7);
+        for (let i = 0; i < count; i += 1) {
+          const offset = (i - (count - 1) / 2) * 0.15;
+          const speed = game.difficulty.scaleSpeed(1.42 + (i % 2) * 0.12);
+          game.spawnEnemyBullet(new Bullet(this.x, this.y, Math.cos(aim + offset) * speed, Math.sin(aim + offset) * speed, 6, "enemy", "#f2a93c"));
+        }
       }
+      this.fireCooldown = game.difficulty.scaleFireInterval(config.fireInterval + Math.floor(Math.random() * 30));
     }
 
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
+      const bob = Math.sin(this.age * 0.09) * 2;
+      ctx.translate(0, bob);
+      if (pollenSpriteSheet.draw(ctx, this.type)) {
+        ctx.restore();
+        return;
+      }
       ctx.fillStyle = "#f3d74f";
       ctx.strokeStyle = "#fff1a2";
       ctx.lineWidth = 2;
@@ -671,7 +800,7 @@
     }
 
     offscreen() {
-      return this.y > H + 40;
+      return this.y > H + 70 || this.x < -120 || this.x > W + 120;
     }
   }
 
@@ -717,7 +846,7 @@
       for (let i = 0; i < count; i += 1) {
         const a = (i / count) * TAU + card.age * 0.012;
         const speed = game.difficulty.scaleSpeed(1.22);
-        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f1bf45"));
+        game.spawnEnemyBullet(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f1bf45"));
       }
     },
 
@@ -732,7 +861,7 @@
         if (wrapDiff < (gapWidth / count) * TAU) continue;
         const a = (i / count) * TAU + card.age * 0.025;
         const speed = game.difficulty.scaleSpeed(0.92 + (i % 2) * 0.18);
-        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 5, "enemy", "#f4d34a"));
+        game.spawnEnemyBullet(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 5, "enemy", "#f4d34a"));
       }
     },
 
@@ -743,7 +872,7 @@
       for (let i = -side; i <= side; i += 1) {
         const a = base + i * 0.16;
         const speed = game.difficulty.scaleSpeed(1.75);
-        game.enemyBullets.push(new Bullet(boss.x, boss.y + 8, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f0bd42"));
+        game.spawnEnemyBullet(new Bullet(boss.x, boss.y + 8, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "#f0bd42"));
       }
     },
 
@@ -751,9 +880,9 @@
       if (card.age % game.difficulty.scaleFireInterval(13) !== 1) return;
       const x = 30 + ((card.age * 47) % (W - 60));
       const drift = card.age % 56 < 12 ? (boss.x < W / 2 ? 0.7 : -0.7) : 0;
-      game.enemyBullets.push(new Bullet(x, -16, drift, game.difficulty.scaleSpeed(2.15), 4, "enemy", "#d7c64a", { shape: "needle" }));
+      game.spawnEnemyBullet(new Bullet(x, -16, drift, game.difficulty.scaleSpeed(2.15), 4, "enemy", "#d7c64a", { shape: "needle" }));
       if (game.difficulty.current !== "easy" && card.age % 52 === 1) {
-        game.enemyBullets.push(new Bullet(W - x, -16, drift * -0.8, game.difficulty.scaleSpeed(1.95), 4, "enemy", "#f1de65", { shape: "needle" }));
+        game.spawnEnemyBullet(new Bullet(W - x, -16, drift * -0.8, game.difficulty.scaleSpeed(1.95), 4, "enemy", "#f1de65", { shape: "needle" }));
       }
     },
 
@@ -761,7 +890,7 @@
       if (card.age % game.difficulty.scaleFireInterval(25) !== 1) return;
       const side = game.difficulty.current === "easy" ? 2 : 3;
       for (let i = -side; i <= side; i += 1) {
-        game.enemyBullets.push(new Bullet(boss.x, boss.y + 20, i * 0.42, game.difficulty.scaleSpeed(1.82), 6, "enemy", "#ff9b45", {
+        game.spawnEnemyBullet(new Bullet(boss.x, boss.y + 20, i * 0.42, game.difficulty.scaleSpeed(1.82), 6, "enemy", "#ff9b45", {
           wave: game.difficulty.current === "easy" ? 0.75 : 1.05,
           phase: i * 0.9 + card.age * 0.03,
         }));
@@ -780,7 +909,7 @@
       for (let i = 0; i < count; i += 1) {
         const a = (i / count) * TAU + card.age * 0.01;
         const speed = game.difficulty.scaleSpeed(0.9);
-        game.enemyBullets.push(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "rgba(242, 199, 79, 0.62)"));
+        game.spawnEnemyBullet(new Bullet(boss.x, boss.y, Math.cos(a) * speed, Math.sin(a) * speed, 6, "enemy", "rgba(242, 199, 79, 0.62)"));
       }
     },
 
@@ -1137,15 +1266,26 @@
       ctx.restore();
     }
 
+    resolvePortraitLine(side) {
+      for (let i = this.index; i >= 0; i -= 1) {
+        if (this.lines[i]?.side === side && this.lines[i].portrait) return this.lines[i];
+      }
+      for (let i = this.index + 1; i < this.lines.length; i += 1) {
+        if (this.lines[i]?.side === side && this.lines[i].portrait) return this.lines[i];
+      }
+      return null;
+    }
+
     drawPortrait(ctx, side, activeLine) {
       const isActive = activeLine.side === side;
-      const fileName = isActive ? activeLine.portrait : null;
-      const speaker = isActive ? activeLine.speaker : (side === "left" ? "PLAYER" : "BOSS");
+      const portraitLine = isActive ? activeLine : this.resolvePortraitLine(side);
+      const fileName = portraitLine?.portrait || null;
+      const speaker = portraitLine?.speaker || (side === "left" ? "PLAYER" : "BOSS");
       const record = this.getPortrait(fileName);
       const w = 156;
       const h = 300;
       const baseX = side === "left" ? 24 : W - w - 24;
-      const slide = (1 - Math.min(1, this.age / 18)) * 34;
+      const slide = isActive ? (1 - Math.min(1, this.age / 18)) * 34 : 0;
       const x = baseX + (side === "left" ? -slide : slide);
       const y = 118;
 
@@ -1375,9 +1515,17 @@
       this.playerSpellTimer = 0;
       this.playerSpellCutin = 0;
       this.playerSpellCooldown = 0;
+      this.playerSpellActive = false;
       this.continuesLeft = INITIAL_CONTINUES;
       this.continueCount = 0;
       this.missedDuringCard = false;
+      this.spawnedWaves = new Set();
+      this.currentWave = 0;
+      this.debugVisible = false;
+      this.enemyBulletsSpawnedFrame = 0;
+      this.enemyBulletSpawnHistory = [];
+      this.spellKeyHeld = false;
+      this.spellPointerHeld = false;
       this.titlePanel = "main";
       this.dialogue = new DialogueManager(DIALOGUE_SCENES, PORTRAIT_BASE);
       this.lastTime = 0;
@@ -1427,7 +1575,16 @@
       this.playerSpellTimer = 0;
       this.playerSpellCutin = 0;
       this.playerSpellCooldown = 0;
+      this.playerSpellActive = false;
       this.missedDuringCard = false;
+      this.spawnedWaves = new Set(
+        STAGE_WAVES.map((wave, index) => ({ wave, index })).filter(({ wave }) => wave.time <= startTime).map(({ index }) => index)
+      );
+      this.currentWave = this.spawnedWaves.size;
+      this.enemyBulletsSpawnedFrame = 0;
+      this.enemyBulletSpawnHistory = [];
+      this.spellKeyHeld = false;
+      this.spellPointerHeld = false;
       this.life.reset();
       if (keepScore && fromCheckpoint) {
         this.life.lives = Math.max(1, this.life.lives);
@@ -1447,6 +1604,11 @@
       this.lasers = [];
       this.boss = null;
       this.playerSpellTimer = 0;
+      this.playerSpellActive = false;
+      this.playerSpellCutin = 0;
+      this.playerSpellCooldown = 0;
+      this.spellKeyHeld = false;
+      this.spellPointerHeld = false;
       this.state.time = 0;
       this.audio.stopStage();
     }
@@ -1460,6 +1622,16 @@
     bindInput() {
       window.addEventListener("keydown", (e) => {
         if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Shift", "x", "X", "Escape", "Enter"].includes(e.key)) e.preventDefault();
+        if (e.key === "F3") {
+          if (!e.repeat) this.debugVisible = !this.debugVisible;
+          return;
+        }
+        if (this.state.mode === "clear") {
+          if (!e.repeat && (e.key === "z" || e.key === "Z" || e.key === " " || e.key === "Enter" || e.key === "Escape")) {
+            this.returnToTitle();
+          }
+          return;
+        }
         if (this.state.mode === "title") {
           this.handleTitleKey(e.key);
           return;
@@ -1487,7 +1659,10 @@
         if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") this.input.down = true;
         if (e.key === "Shift") this.input.slow = true;
         if (e.key === "z" || e.key === "Z" || e.key === " ") this.input.fire = true;
-        if (e.key === "x" || e.key === "X") this.activatePlayerSpell();
+        if ((e.key === "x" || e.key === "X") && !this.spellKeyHeld && !e.repeat) {
+          this.spellKeyHeld = true;
+          this.activatePlayerSpell();
+        }
       }, { passive: false });
 
       window.addEventListener("keyup", (e) => {
@@ -1497,6 +1672,7 @@
         if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") this.input.down = false;
         if (e.key === "Shift") this.input.slow = false;
         if (e.key === "z" || e.key === "Z" || e.key === " ") this.input.fire = false;
+        if (e.key === "x" || e.key === "X") this.spellKeyHeld = false;
       });
 
       canvas.addEventListener("pointerdown", (e) => {
@@ -1545,7 +1721,15 @@
           this.dialogue.advance();
           return;
         }
+        if (this.spellPointerHeld) return;
+        this.spellPointerHeld = true;
         this.activatePlayerSpell();
+      });
+      spellButton.addEventListener("pointerup", () => {
+        this.spellPointerHeld = false;
+      });
+      spellButton.addEventListener("pointercancel", () => {
+        this.spellPointerHeld = false;
       });
 
       menuButton.addEventListener("pointerdown", (e) => {
@@ -1661,6 +1845,10 @@
     }
 
     handleCanvasTap(e) {
+      if (this.state.mode === "clear") {
+        this.returnToTitle();
+        return true;
+      }
       if (this.state.mode !== "title" && this.state.mode !== "paused" && this.state.mode !== "gameover") return false;
       const pos = this.canvasPoint(e);
       const hit = this.hitMenuItem(pos.x, pos.y);
@@ -1846,9 +2034,13 @@
     updateStage() {
       this.state.time += 1;
       this.checkpoints.updateByTime(this.state.time);
+      this.enemyBulletsSpawnedFrame = 0;
       this.playerSpellCooldown = Math.max(0, this.playerSpellCooldown - 1);
       this.playerSpellCutin = Math.max(0, this.playerSpellCutin - 1);
-      this.playerSpellTimer = Math.max(0, this.playerSpellTimer - 1);
+      if (this.playerSpellActive) {
+        this.playerSpellTimer = Math.max(0, this.playerSpellTimer - 1);
+        if (this.playerSpellTimer <= 0) this.endPlayerSpell();
+      }
       this.player.update(this.input, this.playerBullets);
       this.updatePlayerSpell();
       this.spawnStageEnemies();
@@ -1864,15 +2056,18 @@
       this.enemies = this.enemies.filter((e) => !e.offscreen() && e.hp > 0);
       this.playerBullets = this.playerBullets.filter((b) => !b.offscreen());
       this.enemyBullets = this.enemyBullets.filter((b) => !b.offscreen());
+      this.enemyBulletSpawnHistory.push(this.enemyBulletsSpawnedFrame);
+      if (this.enemyBulletSpawnHistory.length > 60) this.enemyBulletSpawnHistory.shift();
     }
 
     activatePlayerSpell() {
       if (this.state.mode !== "stage" || this.dialogue.active) return;
-      if (this.playerSpellCount <= 0 || this.playerSpellTimer > 0 || this.playerSpellCooldown > 0) return;
+      if (this.playerSpellCount <= 0 || this.playerSpellActive || this.playerSpellCooldown > 0) return;
       this.playerSpellCount -= 1;
       this.playerSpellTimer = 165;
       this.playerSpellCutin = 82;
       this.playerSpellCooldown = 220;
+      this.playerSpellActive = true;
       this.player.invincible = Math.max(this.player.invincible, 180);
       this.cancelEnemyBullets(true);
       this.lasers = [];
@@ -1881,8 +2076,14 @@
       for (let i = 0; i < 40; i += 1) this.particles.push(new Particle(this.player.x, this.player.y - 40, "#bdf6ff"));
     }
 
+    endPlayerSpell() {
+      this.playerSpellActive = false;
+      this.playerSpellTimer = 0;
+      this.player.invincible = Math.min(this.player.invincible, 20);
+    }
+
     updatePlayerSpell() {
-      if (this.playerSpellTimer <= 0) return;
+      if (!this.playerSpellActive || this.playerSpellTimer <= 0) return;
       this.player.invincible = Math.max(this.player.invincible, 3);
       if (this.playerSpellTimer % 8 === 0) this.cancelEnemyBullets(true);
 
@@ -1891,6 +2092,7 @@
         if (e.x > beam.x - beam.w / 2 - e.r && e.x < beam.x + beam.w / 2 + e.r && e.y < beam.bottom && e.y > -30) {
           e.hp -= 3.5;
           if (this.playerSpellTimer % 10 === 0) this.spawnBurst(e.x, e.y, "#c9f8ff", 4);
+          if (e.hp <= 0) this.destroyEnemy(e);
         }
       }
       if (this.boss && this.boss.entered && !this.boss.defeated) {
@@ -1911,32 +2113,64 @@
 
     spawnStageEnemies() {
       const t = this.state.time;
-      if (t < 3300) {
-        const waveRate = Math.round(150 / this.difficulty.config.spawnMultiplier);
-        if (t % waveRate === 20) {
-          const count = this.difficulty.current === "easy" ? 2 : this.difficulty.current === "normal" ? 3 : 4;
-          for (let i = 0; i < count; i += 1) this.spawnEnemy(75 + i * (300 / Math.max(1, count - 1)), -20 - i * 18, "drift");
+      STAGE_WAVES.forEach((wave, index) => {
+        if (t >= wave.time && !this.spawnedWaves.has(index)) {
+          this.spawnedWaves.add(index);
+          this.currentWave = index + 1;
+          this.spawnWave(wave.pattern);
         }
-        if (t % Math.round(260 / this.difficulty.config.spawnMultiplier) === 100) {
-          this.spawnEnemy(80, -25, "sine");
-          if (this.difficulty.current !== "easy") this.spawnEnemy(W - 80, -25, "sine");
-        }
-        if (t % Math.round(560 / this.difficulty.config.spawnMultiplier) === 280) {
-          this.spawnEnemy(W / 2, -35, "big");
-        }
-      }
+      });
 
-      if (t === 3420) {
+      if (t >= 3420 && !this.boss) {
         this.boss = new Boss();
         this.enemyBullets = [];
         this.state.showMessage("花粉濃度、異常上昇", 150);
       }
     }
 
-    spawnEnemy(x, y, type) {
-      const enemy = new Enemy(x, y, type);
+    spawnWave(pattern) {
+      const spawn = (x, y, type, movement = "drift") => this.spawnEnemy(x, y, type, movement);
+      if (pattern === "smallLine") {
+        const count = this.difficulty.current === "easy" ? 3 : this.difficulty.current === "hard" ? 5 : 4;
+        for (let i = 0; i < count; i += 1) spawn(68 + i * (314 / Math.max(1, count - 1)), -30 - i * 22, "small");
+      } else if (pattern === "mediumPair") {
+        spawn(105, -34, "medium", "sine");
+        if (this.difficulty.current !== "easy") spawn(W - 105, -70, "medium", "sine");
+      } else if (pattern === "smallSweep") {
+        const count = this.difficulty.current === "easy" ? 3 : 5;
+        for (let i = 0; i < count; i += 1) spawn(70 + i * 72, -25 - i * 42, "small", "zigzag");
+      } else if (pattern === "largeEscort") {
+        spawn(W / 2, -52, "large", "sine");
+        if (this.difficulty.current !== "easy") {
+          spawn(90, -100, "small");
+          spawn(W - 90, -130, "small");
+        }
+      } else if (pattern === "mediumTrio") {
+        spawn(92, -30, "medium");
+        spawn(W / 2, -82, "medium", "sine");
+        if (this.difficulty.current !== "easy") spawn(W - 92, -134, "medium");
+      } else if (pattern === "smallCross") {
+        for (let i = 0; i < 4; i += 1) spawn(i % 2 === 0 ? 92 : W - 92, -30 - i * 58, "small", "sine");
+      } else if (pattern === "largeSolo") {
+        spawn(W / 2, -50, "large", "sine");
+      } else if (pattern === "smallFinale") {
+        const count = this.difficulty.current === "hard" ? 6 : 4;
+        for (let i = 0; i < count; i += 1) spawn(72 + i * (306 / Math.max(1, count - 1)), -30 - (i % 2) * 55, "small", "zigzag");
+      }
+    }
+
+    spawnEnemy(x, y, type, movement = "drift") {
+      const enemy = new Enemy(x, y, type, movement);
       enemy.hp = Math.max(1, Math.round(enemy.hp * this.difficulty.config.enemyHpMultiplier));
       this.enemies.push(enemy);
+    }
+
+    spawnEnemyBullet(bullet) {
+      const limit = ENEMY_BULLET_LIMITS[this.difficulty.current];
+      if (this.enemyBullets.length >= limit) return false;
+      this.enemyBullets.push(bullet);
+      this.enemyBulletsSpawnedFrame += 1;
+      return true;
     }
 
     updateLasers() {
@@ -1952,13 +2186,11 @@
     resolveCollisions() {
       for (const b of this.playerBullets) {
         for (const e of this.enemies) {
+          if (e.destroyed) continue;
           if (dist2(b, e) < (b.r + e.r) ** 2) {
             e.hp -= b.damage;
             b.y = -100;
-            if (e.hp <= 0) {
-              addScore(this, e.type === "big" ? SCORE_VALUES.enemyBig : SCORE_VALUES.enemySmall);
-              this.spawnBurst(e.x, e.y, "#f6d94e", 14);
-            }
+            if (e.hp <= 0) this.destroyEnemy(e);
             break;
           }
         }
@@ -1976,12 +2208,22 @@
       }
 
       for (const e of this.enemies) {
+        if (e.destroyed) continue;
         if (dist2(e, this.player) < (e.r + this.player.r) ** 2) {
           e.hp = 0;
+          e.destroyed = true;
           this.spawnBurst(e.x, e.y, "#f6d94e", 12);
           this.player.hit(this);
         }
       }
+    }
+
+    destroyEnemy(enemy) {
+      if (enemy.destroyed) return;
+      enemy.destroyed = true;
+      enemy.hp = 0;
+      addScore(this, enemy.scoreValue);
+      this.spawnBurst(enemy.x, enemy.y, "#f6d94e", enemy.type === "large" ? 24 : 14);
     }
 
     spawnBurst(x, y, color, count) {
@@ -2013,7 +2255,7 @@
       addScore(this, SCORE_VALUES.bossDefeat + SCORE_VALUES.stageClear);
       this.enemyBullets = [];
       this.lasers = [];
-      this.playerSpellTimer = 0;
+      this.endPlayerSpell();
       this.audio.pauseStage();
       this.state.showMessage("消滅", 120);
       this.startDialogue("scene_clear", () => {
@@ -2021,7 +2263,9 @@
         this.state.mode = "clear";
         this.saveCurrentRun(true);
         this.state.showMessage("花粉、滅殺完了！", 9999);
-        this.startDialogue("scene_ending");
+        this.startDialogue("scene_ending", () => {
+          this.state.mode = "clear";
+        });
       });
     }
 
@@ -2052,7 +2296,7 @@
     }
 
     drawPlayerSpellEffects() {
-      if (this.playerSpellTimer <= 0) return;
+      if (!this.playerSpellActive || this.playerSpellTimer <= 0) return;
       const beam = this.getPlayerSpellBeam();
       ctx.save();
       ctx.globalCompositeOperation = "screen";
@@ -2235,6 +2479,28 @@
         ctx.font = "800 29px system-ui, sans-serif";
         ctx.fillText(this.boss.name, W / 2, 210);
       }
+
+      if (this.debugVisible) this.drawDebugOverlay();
+    }
+
+    drawDebugOverlay() {
+      const bulletsLastSecond = this.enemyBulletSpawnHistory.reduce((sum, count) => sum + count, 0);
+      const activeEnemyPatterns = this.enemies.filter((enemy) => !enemy.destroyed && enemy.y > 20 && enemy.y < H - 120).length;
+      const activePatterns = activeEnemyPatterns + (this.boss?.currentCard && !this.boss.defeated ? 1 : 0);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.76)";
+      ctx.fillRect(8, H - 154, 224, 136);
+      ctx.fillStyle = "#dfffd8";
+      ctx.font = "12px ui-monospace, Consolas, monospace";
+      ctx.textAlign = "left";
+      const rows = [
+        `DEBUG F3  ${this.difficulty.label}`,
+        `ENEMIES ${this.enemies.length}`,
+        `ENEMY BULLETS ${this.enemyBullets.length}`,
+        `SPAWNED / 1s ${bulletsLastSecond}`,
+        `WAVE ${this.currentWave} / ${STAGE_WAVES.length}`,
+        `ACTIVE PATTERNS ${activePatterns}`,
+      ];
+      rows.forEach((row, index) => ctx.fillText(row, 18, H - 132 + index * 19));
     }
 
     drawTitle() {
@@ -2363,6 +2629,9 @@
 
   const game = new Game();
   const updateManager = new UpdateManager();
+  if (new URLSearchParams(location.search).has("debug")) {
+    window.__POLLEN_GAME__ = game;
+  }
   updateManager.init();
   requestAnimationFrame(game.loop);
 })();

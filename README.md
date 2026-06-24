@@ -27,6 +27,7 @@ PC:
 - 低速移動: 右下の `低速` ボタン
 - 履技: 右下の `履技` ボタン
 - ポーズ: 画面上部の `MENU` ボタン
+- 更新情報: スマホでは初期状態で `INFO` に折りたたみ
 
 Xboxコントローラー:
 
@@ -44,6 +45,7 @@ Xboxコントローラー:
 - ビジュアルノベル風会話システム
 - PLAYER立ち絵/自機画像 `assets/characters/player.png` 対応
 - スギノミコト立ち絵/ボス画像 `assets/characters/suginomikoto.png` 対応
+- 大・中・小花粉スプライト `assets/enemies/pollen_enemies.png` 対応
 - 背景画像 `assets/backgrounds/stage1_pollen_sando.png` 対応
 - 道中BGM `assets/audio/stage1_spring_pollen_path.mp3` 対応
 - ボスBGM `assets/audio/boss_suginomikoto.mp3` 対応
@@ -52,6 +54,7 @@ Xboxコントローラー:
 - 残機制、難易度選択、途中復帰
 - スコア、エクステンド、難易度別ハイスコア保存
 - ポーズメニュー、ゲームオーバーメニュー
+- F3デバッグ表示（敵数、敵弾数、直近1秒の生成弾数、ウェーブ、攻撃パターン）
 - 更新情報パネル
 - `version.json` によるアップデート情報管理
 - `sw.js` によるService Workerキャッシュ更新
@@ -59,7 +62,7 @@ Xboxコントローラー:
 ## 進行システム
 
 - 初期残機は3機です。
-- 被弾すると残機を1つ失い、敵弾が消去され、短時間無敵で復帰します。
+- 被弾すると残機を1つ失い、敵弾が消去され、履技が3回まで補充された状態で短時間無敵復帰します。
 - 残機が0になるとゲームオーバーメニューが開きます。
 - `CONTINUE` は最後に到達したチェックポイントから再開します。
 - コンティニュー時はスコアが20%減少し、コンティニュー回数が記録されます。
@@ -91,6 +94,8 @@ assets/
     player.png
     suginomikoto.png
     .gitkeep
+  enemies/
+    pollen_enemies.png
 ```
 
 ## 更新管理
