@@ -140,3 +140,13 @@ python -m http.server 8000
 ```
 
 その後、ブラウザで `http://localhost:8000/` を開きます。
+
+## SE再生成
+
+ゲーム内SEは数式波形とノイズから生成したオリジナル音源です。
+
+```bash
+python tools/generate_se.py
+```
+
+実行すると `assets/audio/se/` の19種類のWAVファイルを再生成します。
