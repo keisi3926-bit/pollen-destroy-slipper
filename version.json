@@ -1,8 +1,13 @@
 {
-  "version": "0.30.2",
+  "version": "0.31.0",
   "build": "2026-06-25",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.31.0",
+      "date": "2026-06-25",
+      "summary": "Stage2のボス登場、ヒノキ将軍撃破後、Stage2 CLEAR会話を追加。神威間のテンポを維持し、クリア後はStage Selectへ戻る導線に対応。"
+    },
     {
       "version": "0.30.2",
       "date": "2026-06-25",

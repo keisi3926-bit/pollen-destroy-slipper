@@ -98,7 +98,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.30.2";
+  const APP_VERSION = "0.31.0";
   const FIXED_STEP_SECONDS = 1 / 60;
   const BOSS_DAMAGE_MULTIPLIER = 0.68;
   const INITIAL_CONTINUES = 3;
@@ -224,6 +224,8 @@
       clearScene: "scene_clear",
       endingScene: "scene_ending",
       clearMessage: "花粉、滅殺完了！",
+      clearSubtitle: "",
+      clearFooter: "",
       boss: {
         name: "スギノミコト",
         asset: BOSS_ASSET,
@@ -255,11 +257,13 @@
       bossTime: 3500,
       warning: "檜の風圧、街道を封鎖",
       enemyFamily: "hinoki",
-      introScene: "scene2_intro",
-      bossScene: "scene2_boss",
-      clearScene: "scene2_clear",
-      endingScene: "scene2_ending",
-      clearMessage: "檜軍、突破完了！",
+      introScene: null,
+      bossScene: "stage2_boss_intro",
+      clearScene: "stage2_boss_defeat",
+      endingScene: "stage2_clear",
+      clearMessage: "STAGE2 CLEAR",
+      clearSubtitle: "檜風、撃破完了",
+      clearFooter: "TO BE CONTINUED",
       boss: {
         name: "ヒノキ将軍",
         asset: HINOKI_BOSS_ASSET,
@@ -442,27 +446,44 @@
       { speaker: "player", text: "次の敵が待っている。", portrait: "player.png", side: "left" },
       { speaker: "system", text: "King of Slipper 外伝は続く。", portrait: "player.png", side: "left" },
     ],
-    scene2_intro: [
-      { speaker: "player", text: "杉を越えた先まで、鼻がむずむずする。", portrait: "player.png", side: "left" },
-      { speaker: "player", text: "今度は檜か。春は層が厚いな。", portrait: "player.png", side: "left" },
-      { speaker: "player", text: "街道ごと、叩いて通る。", portrait: "player.png", side: "left" },
+    stage2_boss_intro: [
+      { speaker: "boss", text: "杉を退けたか。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "だが、春の戦はまだ終わらぬ。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "知ってたよ。", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "だいたい杉の次は檜って相場が決まってる。", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "ならば話は早い。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "我が名はヒノキ将軍。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "檜風を率いる、第二の花粉将。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "二番手のくせに偉そうだな。", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "二番手ではない。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "第二波だ。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "どっちでも鼻に来るんだよ！", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "檜の陣、展開。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "神威――檜風神陣。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "来い。", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "まとめて叩き落とす。", portrait: "player.png", side: "left" },
     ],
-    scene2_boss: [
-      { speaker: "boss", text: "止まれ、黒き履物の王。", portrait: "hinoki_shogun.png", side: "right" },
-      { speaker: "player", text: "道を塞ぐなら、将軍でも叩く。", portrait: "player.png", side: "left" },
-      { speaker: "boss", text: "我が檜軍は、杉のようには散らぬ。", portrait: "hinoki_shogun.png", side: "right" },
-      { speaker: "player", text: "鼻には同じだ。", portrait: "player.png", side: "left" },
-      { speaker: "boss", text: "ならば受けよ。檜風の陣。", portrait: "hinoki_shogun.png", side: "right" },
+    stage2_boss_defeat: [
+      { speaker: "boss", text: "……見事だ。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "檜風、ここに敗れる。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "よし。", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "これで春も少しはマシになるな。", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "甘い。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "え。", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "我らは四天王の一角に過ぎぬ。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "……増えるな。", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "次なる花粉は、さらに厄介だ。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "もう帰っていい？", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "否。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "boss", text: "春は、まだ終わらぬ。", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "終わってくれ。", portrait: "player.png", side: "left" },
     ],
-    scene2_clear: [
-      { speaker: "boss", text: "見事……この街道、通るがよい。", portrait: "hinoki_shogun.png", side: "right" },
-      { speaker: "player", text: "次からは花粉を減らしておけ。", portrait: "player.png", side: "left" },
-      { speaker: "boss", text: "それは軍議にかけよう。", portrait: "hinoki_shogun.png", side: "right" },
-    ],
-    scene2_ending: [
-      { speaker: "system", text: "STAGE 2 CLEAR", portrait: "player.png", side: "left" },
-      { speaker: "player", text: "杉、檜。次は何だ。", portrait: "player.png", side: "left" },
-      { speaker: "system", text: "STAGE 3 COMING SOON", portrait: "player.png", side: "left" },
+    stage2_clear: [
+      { speaker: "system", text: "STAGE2 CLEAR", portrait: "player.png", side: "left" },
+      { speaker: "system", text: "檜風、撃破完了", portrait: "player.png", side: "left" },
+      { speaker: "system", text: "TO BE CONTINUED", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "杉の次は檜。", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "花粉って、ほんと段階制なんだな……。", portrait: "player.png", side: "left" },
     ],
   };
 
@@ -2555,6 +2576,16 @@
       this.audio.stopStage();
     }
 
+    leaveClearScreen() {
+      const returnToStageSelect = this.currentStageId === "stage2";
+      this.returnToTitle();
+      if (returnToStageSelect) {
+        this.titlePanel = "stage";
+        this.stageSelectMenu.index = 1;
+        this.ensureTitleBGM();
+      }
+    }
+
     startDialogue(sceneName, onComplete = null) {
       this.input.fire = false;
       this.input.touchActive = false;
@@ -2570,9 +2601,14 @@
           if (!e.repeat) this.debugVisible = !this.debugVisible;
           return;
         }
+        if (this.dialogue.active) {
+          if (e.key === "Enter") this.dialogue.skip();
+          if (e.key === "z" || e.key === "Z" || e.key === " ") this.dialogue.advance();
+          return;
+        }
         if (this.state.mode === "clear") {
           if (!e.repeat && (e.key === "z" || e.key === "Z" || e.key === " " || e.key === "Enter" || e.key === "Escape")) {
-            this.returnToTitle();
+            this.leaveClearScreen();
           }
           return;
         }
@@ -2586,11 +2622,6 @@
         }
         if (this.state.mode === "gameover") {
           this.handleGameOverKey(e.key);
-          return;
-        }
-        if (this.dialogue.active) {
-          if (e.key === "Enter") this.dialogue.skip();
-          if (e.key === "z" || e.key === "Z" || e.key === " ") this.dialogue.advance();
           return;
         }
         if (e.key === "Escape" || e.key === "p" || e.key === "P") {
@@ -3009,7 +3040,8 @@
 
     handleCanvasTap(e) {
       if (this.state.mode === "clear") {
-        this.returnToTitle();
+        if (this.dialogue.active) return false;
+        this.leaveClearScreen();
         return true;
       }
       if (this.state.mode !== "title" && this.state.mode !== "paused" && this.state.mode !== "gameover") return false;
@@ -3191,6 +3223,8 @@
           if (this.gameOverMenu.confirm) this.gameOverMenu.confirm = null;
           else this.returnToTitle();
         }
+      } else if (this.state.mode === "clear") {
+        if (justPressed(0) || justPressed(1)) this.leaveClearScreen();
       } else if (this.state.mode === "stage") {
         if (justPressed(2)) this.activatePlayerSpell();
         if (justPressed(8) || justPressed(9)) this.openPauseMenu();
@@ -3788,7 +3822,13 @@
       if (this.state.mode === "title") this.drawTitle();
       if (this.state.mode === "paused") this.drawPauseMenu();
       if (this.state.mode === "gameover") this.drawGameOverMenu();
-      if (this.state.mode === "clear") this.drawResult(this.currentStage.clearMessage, "スコア " + this.score.value);
+      if (this.state.mode === "clear") {
+        this.drawResult(
+          this.currentStage.clearMessage,
+          this.currentStage.clearSubtitle || `スコア ${this.score.value}`,
+          this.currentStage.clearFooter
+        );
+      }
       this.drawBossSpellCutin();
       this.drawPlayerSpellCutin();
       this.drawPowerUpFlash();
@@ -4376,7 +4416,7 @@
       rows.forEach((row, i) => ctx.fillText(row, x, y + i * lineHeight));
     }
 
-    drawResult(title, subtitle) {
+    drawResult(title, subtitle, footer = "") {
       ctx.fillStyle = "rgba(5, 13, 12, 0.72)";
       ctx.fillRect(0, 0, W, H);
       ctx.textAlign = "center";
@@ -4386,8 +4426,20 @@
       ctx.fillStyle = "#eaffdf";
       ctx.font = "18px system-ui, sans-serif";
       ctx.fillText(subtitle, W / 2, 382);
+      if (footer) {
+        ctx.fillStyle = "#fff0a8";
+        ctx.font = "700 16px system-ui, sans-serif";
+        ctx.fillText(footer, W / 2, 414);
+      }
       ctx.font = "15px system-ui, sans-serif";
-      ctx.fillText("Z / Space / タップでタイトルから再開", W / 2, 432);
+      ctx.fillStyle = "#eaffdf";
+      ctx.fillText(
+        this.currentStageId === "stage2"
+          ? "Z / Space / タップでSTAGE SELECTへ"
+          : "Z / Space / タップでタイトルから再開",
+        W / 2,
+        footer ? 458 : 432
+      );
     }
   }
 

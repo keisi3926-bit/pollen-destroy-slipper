@@ -128,6 +128,7 @@ const sandbox = {
   setTimeout,
   clearTimeout,
   document: {
+    body: createElement("body"),
     getElementById(id) { return elements.get(id); },
     querySelector(selector) { return selector === ".update-panel" ? updatePanel : null; },
     createElement() { return createElement(); },
@@ -446,8 +447,8 @@ game.refreshTitleMenu();
 game.titlePanel = "stage";
 assert.equal(game.stageSelectMenu.items[1].disabled, false, "clearing Stage1 should unlock Stage2");
 game.start(false, false, "stage2");
-game.dialogue.completeNow();
 assert.equal(game.currentStageId, "stage2", "Stage2 should become the active stage");
+assert.equal(game.dialogue.active, false, "Stage2 should not pause for a stage-start dialogue");
 assert.equal(game.state.stageName, "二面　檜風街道", "Stage2 title should be applied");
 assert.equal(game.audio.currentBGMName, "stage2", "Stage2 should use its road theme slot");
 assert.ok(game.background.image.src.includes("stage2_hinoki_road.jpg"), "Stage2 should use the Hinoki road background");
@@ -456,6 +457,9 @@ game.spawnStageEnemies();
 assert.equal(game.boss.name, "ヒノキ将軍", "Stage2 should spawn Hinoki Shogun");
 game.boss.y = 117;
 game.boss.update(game);
+assert.equal(game.dialogue.sceneName, "stage2_boss_intro", "Hinoki Shogun arrival should use the dedicated intro scene");
+assert.equal(game.dialogue.resolveSpeaker("player"), "寿立覇王", "Stage2 player name should resolve from dialogue context");
+assert.equal(game.dialogue.resolveSpeaker("boss"), "ヒノキ将軍", "Stage2 boss name should resolve from dialogue context");
 game.dialogue.skip();
 for (let i = 0; i < 20 && game.dialogue.active; i += 1) game.dialogue.update();
 assert.equal(game.audio.currentBGMName, "boss2", "Hinoki Shogun dialogue completion should switch boss BGM");
@@ -473,5 +477,17 @@ game.boss.update(game);
 finishBossCardTransition();
 assert.equal(game.boss.currentCard.survival, false, "Stage2 survival should advance to the third phase");
 assert.equal(game.boss.currentCard.pattern, "hinokiFinal", "Stage2 final phase should use its dedicated pattern");
+game.boss.currentCard.hp = 0;
+game.boss.nextCard(game);
+game.pendingBossDefeat = 0;
+game.defeatBoss();
+assert.equal(game.dialogue.sceneName, "stage2_boss_defeat", "Stage2 boss defeat should use the dedicated defeat scene");
+game.dialogue.completeNow();
+assert.equal(game.dialogue.sceneName, "stage2_clear", "Stage2 defeat dialogue should lead to the short clear scene");
+game.dialogue.completeNow();
+assert.equal(game.state.mode, "clear", "Stage2 clear dialogue should finish on the clear result");
+game.leaveClearScreen();
+assert.equal(game.state.mode, "title", "leaving Stage2 clear should return to the title state");
+assert.equal(game.titlePanel, "stage", "leaving Stage2 clear should open Stage Select");
 
 console.log("smoke test passed");
