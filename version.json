@@ -1,8 +1,13 @@
 {
-  "version": "0.30.0",
+  "version": "0.30.1",
   "build": "2026-06-25",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.30.1",
+      "date": "2026-06-25",
+      "summary": "Stage2「二面 檜風街道」の道中BGMを「檜風疾走 - general of the cypress forest」へ差し替え。"
+    },
     {
       "version": "0.30.0",
       "date": "2026-06-25",

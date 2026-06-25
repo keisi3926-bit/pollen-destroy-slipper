@@ -98,7 +98,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.30.0";
+  const APP_VERSION = "0.30.1";
   const FIXED_STEP_SECONDS = 1 / 60;
   const BOSS_DAMAGE_MULTIPLIER = 0.68;
   const INITIAL_CONTINUES = 3;
