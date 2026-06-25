@@ -90,7 +90,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.26.0";
+  const APP_VERSION = "0.26.1";
   const FIXED_STEP_SECONDS = 1 / 60;
   const BOSS_DAMAGE_MULTIPLIER = 0.68;
   const INITIAL_CONTINUES = 3;
@@ -1480,13 +1480,14 @@
     }
 
     takeDamage(game, amount) {
-      if (!this.currentCard || this.defeated || this.transitioning || this.invincible || !this.entered) return;
-      if (this.currentCard.survival || this.currentCard.resolved) return;
+      if (!this.currentCard || this.defeated || this.transitioning || this.invincible || !this.entered) return false;
+      if (this.currentCard.survival || this.currentCard.resolved) return false;
       const appliedDamage = amount * BOSS_DAMAGE_MULTIPLIER;
       this.currentCard.hp = Math.max(0, this.currentCard.hp - appliedDamage);
       this.hp = this.currentCard.hp;
       addScore(game, appliedDamage * SCORE_VALUES.bossDamage);
       if (this.currentCard.hp <= 0) this.nextCard(game, "hp-break");
+      return true;
     }
 
     enemyClearOnCardChange(game) {
@@ -3160,8 +3161,8 @@
 
       if (this.boss && this.boss.entered && !this.boss.defeated) {
         if (Math.abs(this.boss.x - beam.x) < beam.w / 2 + this.boss.r && this.boss.y < beam.bottom) {
-          this.boss.takeDamage(this, 1.25);
-          if (this.playerSpellTimer % 12 === 0) this.spawnBurst(this.boss.x, this.boss.y, "#d7fbff", 8);
+          const damaged = this.boss.takeDamage(this, 1.25);
+          if (damaged && this.playerSpellTimer % 12 === 0) this.spawnBurst(this.boss.x, this.boss.y, "#d7fbff", 8);
         }
       }
       for (const followerBeam of this.getFollowerSpellBeams()) {
@@ -3850,9 +3851,7 @@
         };
 
         const currentCard = this.boss.currentCard;
-        const currentRatio = currentCard?.survival
-          ? Math.max(0, currentCard.survivalTimer / currentCard.survivalDuration)
-          : Math.max(0, this.boss.hp / this.boss.maxHp);
+        const currentRatio = currentCard?.survival ? 1 : Math.max(0, this.boss.hp / this.boss.maxHp);
         if (this.boss.cardIndex === 0) {
           drawLifeBar(45, currentRatio);
         } else {
