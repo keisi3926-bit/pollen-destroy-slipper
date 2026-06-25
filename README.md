@@ -56,6 +56,7 @@ OPTIONS:
 
 ## 実装内容
 
+- 起動時の共通ブランドアイキャッチ「KEISHI’S ENTRANCE」
 - 一面道中
 - ボス「スギノミコト」
 - ビジュアルノベル風会話システム
@@ -114,10 +115,14 @@ OPTIONS:
 ```text
 index.html
 style.css
+brand-splash.js
 game.js
 version.json
 sw.js
 assets/
+  brand/
+    keishis-entrance-logo.png
+    sweet-wind-jingle.mp3
   backgrounds/
     stage1_pollen_sando.png
     stage2_hinoki_road.jpg
@@ -173,6 +178,12 @@ python -m http.server 8000
 ## Stage2 BGM
 
 Stage2道中曲には「檜風疾走 - general of the cypress forest」、ボス曲には「ヒノキ将軍見参！」を使用しています。
+
+## ブランドアイキャッチ
+
+`KeishisEntranceSplash` が起動直後にロゴとジングルを約4.5秒表示します。クリック、タップ、Enter、Space、Escape、ゲームパッドAでスキップできます。
+
+音声はBGM音量とMASTER MUTEを尊重し、自動再生が拒否された場合は無音のまま映像を続行します。開発時はコンソールから `replayKeishisEntranceSplash()` を呼ぶと再表示できます。
 
 ## SE再生成
 

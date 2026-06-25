@@ -19,6 +19,7 @@
   const H = canvas.height;
   const TAU = Math.PI * 2;
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const isBrandSplashActive = () => document.body.classList.contains("brand-splash-active");
   const dist2 = (a, b) => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
@@ -98,7 +99,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.32.0";
+  const APP_VERSION = "0.33.0";
   const STAGE_ORDER = ["stage1", "stage2"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -2668,7 +2669,9 @@
 
     bindInput() {
       window.addEventListener("keydown", (e) => {
+        if (isBrandSplashActive()) return;
         this.audio.unlock();
+        if (this.state.mode === "title") this.ensureTitleBGM();
         if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Shift", "x", "X", "Escape", "Enter"].includes(e.key)) e.preventDefault();
         if (e.key === "F3") {
           if (!e.repeat) this.debugVisible = !this.debugVisible;
@@ -2714,6 +2717,7 @@
       }, { passive: false });
 
       window.addEventListener("keyup", (e) => {
+        if (isBrandSplashActive()) return;
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") this.input.left = false;
         if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") this.input.right = false;
         if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") this.input.up = false;
@@ -2724,6 +2728,7 @@
       });
 
       canvas.addEventListener("pointerdown", (e) => {
+        if (isBrandSplashActive()) return;
         this.audio.unlock();
         if (this.state.mode === "title") this.ensureTitleBGM();
         if (e.button === 2) {
@@ -2781,6 +2786,7 @@
       });
 
       slowButton.addEventListener("pointerdown", (e) => {
+        if (isBrandSplashActive()) return;
         this.audio.unlock();
         e.preventDefault();
         if (this.dialogue.active) {
@@ -2800,6 +2806,7 @@
       });
 
       spellButton.addEventListener("pointerdown", (e) => {
+        if (isBrandSplashActive()) return;
         this.audio.unlock();
         e.preventDefault();
         if (this.dialogue.active) {
@@ -2818,6 +2825,7 @@
       });
 
       menuButton.addEventListener("pointerdown", (e) => {
+        if (isBrandSplashActive()) return;
         this.audio.unlock();
         e.preventDefault();
         if (this.state.mode === "stage") this.openPauseMenu();
@@ -2873,7 +2881,12 @@
     }
 
     ensureTitleBGM() {
-      if (this.state.mode === "title" && this.audio.currentBGMName !== "stage1") this.audio.playBGM("stage1", true);
+      if (this.state.mode !== "title") return;
+      if (this.audio.currentBGMName !== "stage1") {
+        this.audio.playBGM("stage1", true);
+        return;
+      }
+      if (this.audio.currentBGM?.paused) this.audio.resumeBGM();
     }
 
     refreshTitleMenu() {
@@ -3217,6 +3230,10 @@
     }
 
     readGamepad() {
+      if (isBrandSplashActive()) {
+        this.resetGamepadInput();
+        return;
+      }
       if (!navigator.getGamepads || this.save.data.settings?.gamepadEnabled === false) {
         this.resetGamepadInput();
         return;
@@ -4532,6 +4549,9 @@
 
   const game = new Game();
   const updateManager = new UpdateManager();
+  window.addEventListener("keishis-splash-finished", () => {
+    if (game.state.mode === "title") game.ensureTitleBGM();
+  });
   if (new URLSearchParams(location.search).has("debug")) {
     window.__POLLEN_GAME__ = game;
   }
