@@ -107,7 +107,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.37.5";
+  const APP_VERSION = "0.37.6";
   const STAGE_ORDER = ["stage1", "stage2", "stage3"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -1016,7 +1016,7 @@
       }
       game.syncFollowers();
       game.missedDuringCard = true;
-      if (game.boss?.currentCard?.survival) game.boss.currentCard.failed = true;
+      if (game.boss?.currentCard) game.boss.currentCard.failed = true;
       game.state.shake = 18;
       this.invincible = 130;
       game.cancelEnemyBullets(true);
@@ -2047,12 +2047,24 @@
 
     handlePhaseTimeout(game) {
       if (!this.currentCard || this.currentCard.resolved) return;
-      this.currentCard.failed = true;
-      this.currentCard.age = 0;
+      const card = this.currentCard;
+      card.failed = true;
       game.missedDuringCard = true;
-      game.state.showMessage("FAILED - TIME OVER / 撃破まで継続", 120);
       game.audio.playSE("time_up", { maxVoices: 1 });
       game.audio.playSE("spell_failed", { maxVoices: 1 });
+      if (card.remainingLifeBars > 1) {
+        card.remainingLifeBars -= 1;
+        card.hp = card.maxHp;
+        card.age = 0;
+        this.hp = card.hp;
+        this.maxHp = card.maxHp;
+        this.enemyClearOnCardChange(game);
+        game.state.showMessage("FAILED - TIME OVER / NEXT GAUGE", 120);
+        game.missedDuringCard = false;
+        game.state.shake = Math.max(game.state.shake, 8);
+        return;
+      }
+      this.nextCard(game, "phase-timeout");
     }
 
     enemyClearOnCardChange(game) {

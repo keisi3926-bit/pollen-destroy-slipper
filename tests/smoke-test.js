@@ -491,6 +491,12 @@ game.boss.update(game);
 finishBossCardTransition();
 assert.equal(game.boss.currentCard.pattern, "cedarFinal", "Suginomikoto final spell should restore the cedar lane laser pattern");
 assert.equal(game.boss.currentCard.lifeBars, 3, "final divine attack should use three HP bars");
+game.boss.currentCard.hp = Math.floor(game.boss.currentCard.maxHp / 2);
+game.boss.currentCard.age = game.boss.currentCard.duration;
+game.boss.update(game);
+assert.equal(game.boss.currentCard.remainingLifeBars, 2, "timing out a multi-gauge spell should advance to the next gauge");
+assert.equal(game.boss.currentCard.hp, game.boss.currentCard.maxHp, "next gauge should start with full HP after a timeout failure");
+assert.equal(game.pendingBossDefeat, 0, "timeout on a non-final gauge should not defeat the boss");
 
 ["stage2_boss_intro", "stage3_boss_intro"].forEach((sceneName) => {
   let completed = false;
