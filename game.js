@@ -107,7 +107,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.37.3";
+  const APP_VERSION = "0.37.4";
   const STAGE_ORDER = ["stage1", "stage2", "stage3"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;

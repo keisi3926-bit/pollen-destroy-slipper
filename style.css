@@ -20,8 +20,9 @@ body {
   margin: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 25% 8%, rgba(255, 239, 151, 0.28), transparent 25%),
-    linear-gradient(160deg, #0f1b19 0%, #263f2b 46%, #5f7044 100%);
+    linear-gradient(90deg, rgba(2, 7, 5, 0.72), rgba(6, 16, 10, 0.2) 46%, rgba(2, 7, 5, 0.72)),
+    url("assets/backgrounds/site_backdrop_pollen_lords.png") center / cover no-repeat,
+    #06100c;
   color: #eef7e8;
   font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
   touch-action: none;
@@ -213,11 +214,14 @@ body {
 
 html:fullscreen,
 html:fullscreen body {
-  background: #000;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.82), rgba(4, 11, 8, 0.18) 48%, rgba(0, 0, 0, 0.82)),
+    url("assets/backgrounds/site_backdrop_pollen_lords.png") center / cover no-repeat,
+    #000;
 }
 
 html:fullscreen .game-shell {
-  background: #000;
+  background: rgba(0, 0, 0, 0.38);
   padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
 }
