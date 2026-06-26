@@ -647,4 +647,27 @@ game.state.mode = "clear";
 game.leaveClearScreen();
 assert.equal(game.titlePanel, "stage", "practice clear should return to Stage Select");
 
+game.beginStageSelect("stage1");
+game.dialogue.active = false;
+game.state.time = game.currentStage.bossTime;
+game.spawnStageEnemies();
+game.boss.entered = true;
+game.boss.beginCurrentCard(game);
+const continuedBoss = game.boss;
+continuedBoss.currentCard.hp = 123;
+continuedBoss.currentCard.failed = true;
+game.state.mode = "gameover";
+game.continuesLeft = 2;
+game.continueCount = 0;
+game.score.value = 10000;
+game.continueFromCheckpoint();
+assert.equal(game.state.mode, "stage", "continue should resume the current play state");
+assert.equal(game.boss, continuedBoss, "continue should not recreate the boss fight");
+assert.equal(game.boss.currentCard.hp, 123, "continue should preserve current boss HP");
+assert.equal(game.boss.currentCard.failed, true, "continue should preserve failed bonus state for the current spell");
+assert.equal(game.continuesLeft, 1, "continue should consume one continue");
+assert.equal(game.continueCount, 1, "continue count should increase");
+assert.equal(game.power.value, game.power.max, "continue should revive with full power");
+assert.equal(game.life.lives, game.difficulty.config.initialLives, "continue should restore slipper stock without rewinding the boss");
+
 console.log("smoke test passed");

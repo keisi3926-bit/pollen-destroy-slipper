@@ -107,7 +107,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.37.6";
+  const APP_VERSION = "0.37.7";
   const STAGE_ORDER = ["stage1", "stage2", "stage3"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -3630,7 +3630,9 @@
       this.continuesLeft -= 1;
       this.continueCount += 1;
       this.score.reduceForContinue();
-      this.start(true, true);
+      if (!this.resumeInPlaceAfterContinue()) {
+        this.start(true, true);
+      }
       this.grazeCount = 0;
       this.grazeMilestoneIndex = 0;
       this.grazeFlash = 0;
@@ -3642,6 +3644,35 @@
       this.state.showMessage("CONTINUE - POWER MAX！", 150);
       this.spawnBurst(this.player.x, this.player.y, "#ffe477", 42);
       this.audio.playSE("power_max", { maxVoices: 1 });
+    }
+
+    resumeInPlaceAfterContinue() {
+      if (this.state.mode !== "gameover") return false;
+      this.state.mode = "stage";
+      this.dialogue.active = false;
+      this.life.reset();
+      this.life.lives = Math.max(1, this.life.lives);
+      this.player.reset();
+      this.player.invincible = 180;
+      this.playerBullets = [];
+      this.enemyBullets = [];
+      this.lasers = [];
+      this.powerItems = [];
+      this.pointItems = [];
+      this.particles = [];
+      this.endPlayerSpell();
+      this.playerSpellCooldown = 90;
+      this.pendingBossDefeat = 0;
+      this.clearAdvanceTimer = 0;
+      this.state.shake = 0;
+      this.state.message = "";
+      this.state.messageTimer = 0;
+      this.input.touchActive = false;
+      this.input.mouseActive = false;
+      this.input.fire = false;
+      this.audio.resumeAll();
+      if (this.audio.currentBGM?.paused) this.audio.resumeBGM();
+      return true;
     }
 
     handleCanvasTap(e) {
