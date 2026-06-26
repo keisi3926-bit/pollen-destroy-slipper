@@ -107,7 +107,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.37.4";
+  const APP_VERSION = "0.37.5";
   const STAGE_ORDER = ["stage1", "stage2", "stage3"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -259,7 +259,14 @@
         cutinLabel: "SUGINOMIKOTO",
         imageCrop: { sx: 0, sy: 0, sw: 1024, sh: 1536 },
         spellCards: [
-          { name: "Phase 1 通常弾幕", duration: 1200, hp: 300, pattern: "normalSpread", type: "normal" },
+          {
+            name: "Phase 1 通常弾幕",
+            duration: 1500,
+            durationTimes: { easy: 2400, normal: 2100, hard: 1500 },
+            hp: 300,
+            pattern: "normalSpread",
+            type: "normal",
+          },
           {
             name: "大神威「無限飛散」",
             duration: 1800,
@@ -268,7 +275,7 @@
             survival: true,
             survivalTimes: { easy: 40, normal: 35, hard: 30 },
           },
-          { name: "終神威「杉並木封鎖」", duration: 2400, hp: 620, pattern: "infiniteScatter", lifeBars: 3 },
+          { name: "終神威「杉並木封鎖」", duration: 2400, hp: 620, pattern: "cedarFinal", lifeBars: 3 },
         ],
       },
     },
@@ -298,7 +305,14 @@
         cutinLabel: "HINOKI SHOGUN",
         imageCrop: null,
         spellCards: [
-          { name: "第一神威「檜扇陣」", duration: 840, hp: 430, pattern: "hinokiFan", type: "normal" },
+          {
+            name: "第一神威「檜扇陣」",
+            duration: 1500,
+            durationTimes: { easy: 2400, normal: 2100, hard: 1500 },
+            hp: 430,
+            pattern: "hinokiFan",
+            type: "normal",
+          },
           {
             name: "第二神威「檜風耐陣」",
             duration: 1800,
@@ -337,7 +351,14 @@
         cutinLabel: "LORD RAGWEED",
         imageCrop: null,
         spellCards: [
-          { name: "神威「秋塵毒花」", duration: 960, hp: 510, pattern: "ragweedPoisonBloom", type: "spell" },
+          {
+            name: "神威「秋塵毒花」",
+            duration: 1620,
+            durationTimes: { easy: 2520, normal: 2220, hard: 1620 },
+            hp: 510,
+            pattern: "ragweedPoisonBloom",
+            type: "spell",
+          },
           {
             name: "神威「雑草迷霧」",
             duration: 1800,
@@ -1505,6 +1526,7 @@
     constructor({
       name,
       duration,
+      durationTimes = null,
       hp,
       pattern,
       type = "spell",
@@ -1518,6 +1540,8 @@
     }) {
       this.name = name;
       this.duration = duration;
+      this.baseDuration = duration;
+      this.durationTimes = durationTimes;
       this.hp = hp;
       this.maxHp = hp;
       this.lifeBars = Math.max(1, lifeBars);
@@ -1542,6 +1566,7 @@
 
     start(boss, game) {
       this.age = 0;
+      this.duration = this.durationTimes?.[game.difficulty.current] ?? this.baseDuration;
       this.hp = this.maxHp;
       this.remainingLifeBars = this.lifeBars;
       this.frenzy = false;
@@ -1673,6 +1698,28 @@
         if (i === safeSlot) continue;
         const lx = 62 + i * 82;
         game.lasers.push({ x: lx, warn: 76, live: 42, age: 0, width: 15 });
+      }
+    },
+
+    cedarFinal(boss, game, card) {
+      BOSS_PATTERNS.cedarBlockade(boss, game, card);
+      if (card.age % game.difficulty.scaleFireInterval(card.frenzy ? 68 : 96) === 1) {
+        const playerHit = game.player.hitPoint;
+        const base = Math.atan2(playerHit.y - boss.y, playerHit.x - boss.x);
+        const count = game.difficulty.current === "easy" ? 3 : 5;
+        for (let i = 0; i < count; i += 1) {
+          const offset = (i - (count - 1) / 2) * 0.15;
+          const speed = game.difficulty.scaleSpeed(card.frenzy ? 1.95 : 1.62);
+          game.spawnEnemyBullet(new Bullet(
+            boss.x,
+            boss.y + 16,
+            Math.cos(base + offset) * speed,
+            Math.sin(base + offset) * speed,
+            5,
+            "enemy",
+            card.frenzy ? "#ffb15d" : "#f8df6a"
+          ));
+        }
       }
     },
 
@@ -4540,23 +4587,11 @@
       if (this.slipperNovaCutinLoaded) {
         const bandH = 190;
         const bandY = H / 2 - bandH / 2;
-        const sourceW = Math.min(this.slipperNovaCutin.width, this.slipperNovaCutin.height * (W / bandH));
-        const sourceX = (this.slipperNovaCutin.width - sourceW) / 2;
         ctx.fillStyle = "#080907";
         ctx.fillRect(0, bandY - 5, W, bandH + 10);
         ctx.save();
         ctx.translate(slideX, 0);
-        ctx.drawImage(
-          this.slipperNovaCutin,
-          sourceX,
-          0,
-          sourceW,
-          this.slipperNovaCutin.height,
-          0,
-          bandY,
-          W,
-          bandH
-        );
+        this.drawImageCover(this.slipperNovaCutin, 0, bandY, W, bandH);
         ctx.restore();
         const sheen = ctx.createLinearGradient(0, bandY, W, bandY + bandH);
         sheen.addColorStop(0, "rgba(255, 220, 112, 0.05)");
@@ -4591,21 +4626,9 @@
       ctx.fillStyle = "#0b1007";
       ctx.fillRect(0, bandY - 5, W, bandH + 10);
       if (this.suginomikotoCutinLoaded) {
-        const sourceW = Math.min(this.suginomikotoCutin.width, this.suginomikotoCutin.height * (W / bandH));
-        const sourceX = (this.suginomikotoCutin.width - sourceW) / 2;
         ctx.save();
         ctx.translate(slideX, 0);
-        ctx.drawImage(
-          this.suginomikotoCutin,
-          sourceX,
-          0,
-          sourceW,
-          this.suginomikotoCutin.height,
-          0,
-          bandY,
-          W,
-          bandH
-        );
+        this.drawImageCover(this.suginomikotoCutin, 0, bandY, W, bandH);
         ctx.restore();
       }
       const shade = ctx.createLinearGradient(0, bandY, W, bandY + bandH);
@@ -4624,6 +4647,23 @@
       ctx.font = "800 15px system-ui, sans-serif";
       ctx.fillText(this.bossSpellCutinName, 18, H / 2 + 86);
       ctx.restore();
+    }
+
+    drawImageCover(image, x, y, w, h) {
+      const imageRatio = image.width / image.height;
+      const targetRatio = w / h;
+      let sx = 0;
+      let sy = 0;
+      let sw = image.width;
+      let sh = image.height;
+      if (imageRatio > targetRatio) {
+        sw = image.height * targetRatio;
+        sx = (image.width - sw) / 2;
+      } else {
+        sh = image.width / targetRatio;
+        sy = (image.height - sh) / 2;
+      }
+      ctx.drawImage(image, sx, sy, sw, sh, x, y, w, h);
     }
 
     getCutinSlideX(timer, totalFrames, direction) {
@@ -4816,13 +4856,6 @@
           ctx.textAlign = "center";
           ctx.fillText(card.survival ? `SURVIVE  ${rest}` : `${card.name}  ${rest}`, W / 2, spellBoxY + 20);
         }
-      }
-
-      if (!this.dialogue.active && this.state.mode !== "clear") {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.68)";
-        ctx.font = "12px system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("花粉滅殺サバイバー", W / 2, H - 12);
       }
 
       if (this.state.messageTimer > 0) {

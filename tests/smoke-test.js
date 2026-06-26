@@ -464,7 +464,7 @@ assert.equal(game.boss.spellCards.length, 3, "boss battle should have three phas
 game.boss.beginCurrentCard(game);
 assert.equal(game.currentStage.bossLabel, "一面ボス", "Stage1 boss banner should identify the first stage");
 assert.equal(game.boss.currentCard.maxHp, 285, "NORMAL Stage1 phase one HP should use the tuned base and multiplier");
-assert.equal(game.boss.currentCard.duration, 1200, "Stage1 phase one should allow twenty seconds");
+assert.equal(game.boss.currentCard.duration, 2100, "NORMAL Stage1 phase one should allow enough time for normal shots");
 const finishBossCardTransition = () => {
   game.pendingBossCardStart = 0;
   game.boss.transitioning = false;
@@ -488,6 +488,20 @@ game.boss.currentCard.update(game.boss, game, 0.1);
 assert.equal(game.boss.currentCard.frenzy, true, "last ten seconds should enable frenzy mode");
 game.boss.currentCard.survivalTimer = 0;
 game.boss.update(game);
+finishBossCardTransition();
+assert.equal(game.boss.currentCard.pattern, "cedarFinal", "Suginomikoto final spell should restore the cedar lane laser pattern");
+assert.equal(game.boss.currentCard.lifeBars, 3, "final divine attack should use three HP bars");
+
+["stage2_boss_intro", "stage3_boss_intro"].forEach((sceneName) => {
+  let completed = false;
+  game.dialogue.start(sceneName, () => {
+    completed = true;
+  });
+  assert.equal(game.dialogue.active, true, `${sceneName} should start`);
+  game.dialogue.skip();
+  for (let i = 0; i < 20 && game.dialogue.active; i += 1) game.dialogue.update();
+  assert.equal(completed, true, `${sceneName} should support dialogue skip`);
+});
 finishBossCardTransition();
 assert.equal(game.boss.currentCard.survival, false, "survival completion should advance to the final HP phase");
 assert.equal(game.boss.invincible, false, "boss should become vulnerable after survival");
