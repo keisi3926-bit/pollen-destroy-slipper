@@ -107,7 +107,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.37.2";
+  const APP_VERSION = "0.37.3";
   const STAGE_ORDER = ["stage1", "stage2", "stage3"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -268,7 +268,7 @@
             survival: true,
             survivalTimes: { easy: 40, normal: 35, hard: 30 },
           },
-          { name: "終神威「杉並木封鎖」", duration: 2400, hp: 620, pattern: "infiniteScatter" },
+          { name: "終神威「杉並木封鎖」", duration: 2400, hp: 620, pattern: "infiniteScatter", lifeBars: 3 },
         ],
       },
     },
@@ -307,7 +307,7 @@
             survival: true,
             survivalTimeMultiplier: 1,
           },
-          { name: "第三神威「千檜封鎖」", duration: 2520, hp: 760, pattern: "hinokiFinal" },
+          { name: "第三神威「千檜封鎖」", duration: 2520, hp: 760, pattern: "hinokiFinal", lifeBars: 3 },
         ],
       },
     },
@@ -346,7 +346,7 @@
             survival: true,
             survivalTimeMultiplier: 1,
           },
-          { name: "大神威「荒野花粉葬」", duration: 2700, hp: 850, pattern: "ragweedWastelandFuneral" },
+          { name: "大神威「荒野花粉葬」", duration: 2700, hp: 850, pattern: "ragweedWastelandFuneral", lifeBars: 3 },
         ],
       },
     },
@@ -1509,6 +1509,7 @@
       pattern,
       type = "spell",
       survival = false,
+      lifeBars = 1,
       survivalTimeMultiplier = 1,
       survivalTimes = null,
       onStart = null,
@@ -1519,6 +1520,8 @@
       this.duration = duration;
       this.hp = hp;
       this.maxHp = hp;
+      this.lifeBars = Math.max(1, lifeBars);
+      this.remainingLifeBars = this.lifeBars;
       this.pattern = pattern;
       this.type = type;
       this.survival = survival;
@@ -1540,6 +1543,7 @@
     start(boss, game) {
       this.age = 0;
       this.hp = this.maxHp;
+      this.remainingLifeBars = this.lifeBars;
       this.frenzy = false;
       this.frenzyAnnounced = false;
       this.failed = false;
@@ -1890,7 +1894,7 @@
       } else if (!this.currentCard.survival && this.currentCard.hp <= 0) {
         this.nextCard(game, "hp-break");
       } else if (!this.currentCard.survival && this.currentCard.age >= this.currentCard.duration) {
-        this.nextCard(game, "phase-timeout");
+        this.handlePhaseTimeout(game);
       }
     }
 
@@ -1927,9 +1931,13 @@
 
       if (hpBreak) {
         addScore(game, clearedCard.isSpell ? SCORE_VALUES.spellBreak : SCORE_VALUES.normalBreak);
-        if (!game.missedDuringCard) addScore(game, SCORE_VALUES.noMissBreak);
-        game.state.showMessage(clearedCard.isSpell ? "神威突破！ BONUS!" : "BONUS!", 100);
-        game.spawnBossPhaseBonus(this.x, this.y);
+        if (!game.missedDuringCard) {
+          addScore(game, SCORE_VALUES.noMissBreak);
+          game.state.showMessage(clearedCard.isSpell ? "神威突破！ BONUS!" : "BONUS!", 100);
+          game.spawnBossPhaseBonus(this.x, this.y);
+        } else {
+          game.state.showMessage(clearedCard.isSpell ? "神威突破　NO BONUS" : "BREAK　NO BONUS", 90);
+        }
       } else if (survivalSuccess) {
         addScore(game, SCORE_VALUES.spellBreak + SCORE_VALUES.noMissBreak);
         game.state.showMessage("SUCCESS　神威突破！", 120);
@@ -1967,8 +1975,37 @@
       this.currentCard.hp = Math.max(0, this.currentCard.hp - appliedDamage);
       this.hp = this.currentCard.hp;
       addScore(game, appliedDamage * SCORE_VALUES.bossDamage);
-      if (this.currentCard.hp <= 0) this.nextCard(game, "hp-break");
+      if (this.currentCard.hp <= 0) {
+        if (this.currentCard.remainingLifeBars > 1) {
+          this.breakCurrentLifeBar(game);
+        } else {
+          this.nextCard(game, "hp-break");
+        }
+      }
       return true;
+    }
+
+    breakCurrentLifeBar(game) {
+      const card = this.currentCard;
+      card.remainingLifeBars -= 1;
+      card.hp = card.maxHp;
+      this.hp = card.hp;
+      this.maxHp = card.maxHp;
+      this.enemyClearOnCardChange(game);
+      game.state.showMessage(game.missedDuringCard ? "ゲージ破壊　NO BONUS" : "ゲージ破壊！ BONUS!", 90);
+      if (!game.missedDuringCard) game.spawnBossPhaseBonus(this.x, this.y, 18);
+      game.missedDuringCard = false;
+      game.state.shake = Math.max(game.state.shake, 8);
+    }
+
+    handlePhaseTimeout(game) {
+      if (!this.currentCard || this.currentCard.resolved) return;
+      this.currentCard.failed = true;
+      this.currentCard.age = 0;
+      game.missedDuringCard = true;
+      game.state.showMessage("FAILED - TIME OVER / 撃破まで継続", 120);
+      game.audio.playSE("time_up", { maxVoices: 1 });
+      game.audio.playSE("spell_failed", { maxVoices: 1 });
     }
 
     enemyClearOnCardChange(game) {
@@ -2123,6 +2160,9 @@
       this.fade = 0;
       this.closing = false;
       this.onComplete = null;
+      this.auto = false;
+      this.autoWait = 0;
+      this.logOpen = false;
     }
 
     start(sceneName, onComplete = null) {
@@ -2141,6 +2181,8 @@
       this.fade = 0;
       this.closing = false;
       this.onComplete = onComplete;
+      this.autoWait = 0;
+      this.logOpen = false;
       this.preloadScene(scene);
     }
 
@@ -2175,6 +2217,12 @@
       this.fade = Math.min(1, this.fade + 0.06);
       const line = this.currentLine();
       if (line) this.charCount = Math.min(line.text.length, this.charCount + 0.55);
+      if (this.auto && line && this.charCount >= line.text.length) {
+        this.autoWait += 1;
+        if (this.autoWait >= 95) this.advance();
+      } else {
+        this.autoWait = 0;
+      }
     }
 
     currentLine() {
@@ -2202,11 +2250,48 @@
       }
       this.charCount = 0;
       this.age = 0;
+      this.autoWait = 0;
     }
 
     skip() {
       if (!this.active || this.closing) return;
       this.finish();
+    }
+
+    toggleAuto() {
+      this.auto = !this.auto;
+      this.autoWait = 0;
+    }
+
+    toggleLog() {
+      if (!this.active || this.closing) return;
+      this.logOpen = !this.logOpen;
+    }
+
+    handleControlTap(x, y) {
+      if (!this.active || this.closing) return false;
+      const controls = this.controlRects();
+      for (const control of controls) {
+        if (x < control.x || x > control.x + control.w || y < control.y || y > control.y + control.h) continue;
+        if (control.action === "auto") this.toggleAuto();
+        if (control.action === "log") this.toggleLog();
+        if (control.action === "skip") this.skip();
+        return true;
+      }
+      if (this.logOpen) {
+        this.logOpen = false;
+        return true;
+      }
+      return false;
+    }
+
+    controlRects() {
+      const y = H - H * 0.4 + 18;
+      return [
+        { action: "auto", label: this.auto ? "AUTO ON" : "AUTO", x: W - 222, y, w: 64, h: 30 },
+        { action: "log", label: "LOG", x: W - 150, y, w: 52, h: 30 },
+        { action: "skip", label: "SKIP", x: W - 90, y, w: 62, h: 30 },
+      ];
     }
 
     finish() {
@@ -2238,6 +2323,7 @@
       this.drawPortrait(ctx, "left", line);
       this.drawPortrait(ctx, "right", line);
       this.drawWindow(ctx, line);
+      if (this.logOpen) this.drawLog(ctx);
       ctx.restore();
     }
 
@@ -2325,6 +2411,48 @@
         ctx.font = "14px system-ui, sans-serif";
         ctx.textAlign = "right";
         ctx.fillText("Z / Tap", W - pad, H - 20);
+      }
+      this.drawControls(ctx);
+    }
+
+    drawControls(ctx) {
+      this.controlRects().forEach((control) => {
+        ctx.fillStyle = control.action === "auto" && this.auto ? "rgba(255, 240, 168, 0.28)" : "rgba(255,255,255,0.10)";
+        ctx.strokeStyle = "rgba(255,255,255,0.34)";
+        ctx.lineWidth = 1;
+        ctx.fillRect(control.x, control.y, control.w, control.h);
+        ctx.strokeRect(control.x, control.y, control.w, control.h);
+        ctx.fillStyle = "#f7fff0";
+        ctx.font = "800 11px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(control.label, control.x + control.w / 2, control.y + 20);
+      });
+    }
+
+    drawLog(ctx) {
+      const x = 28;
+      const y = 94;
+      const w = W - 56;
+      const h = H * 0.46;
+      ctx.fillStyle = "rgba(0,0,0,0.88)";
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = "rgba(255,255,255,0.34)";
+      ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = "#fff4b8";
+      ctx.font = "800 15px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("DIALOGUE LOG", x + 16, y + 28);
+      ctx.fillStyle = "#f7fff0";
+      ctx.font = "14px system-ui, sans-serif";
+      const start = Math.max(0, this.index - 5);
+      let rowY = y + 56;
+      for (let i = start; i <= this.index; i += 1) {
+        const line = this.lines[i];
+        if (!line) continue;
+        const speaker = this.resolveSpeaker(line.speaker);
+        const text = speaker ? `${speaker}：${line.text}` : line.text;
+        this.drawWrappedText(ctx, text, x + 16, rowY, w - 32, 20, 2);
+        rowY += 42;
       }
     }
 
@@ -2994,6 +3122,8 @@
         }
         if (this.dialogue.active) {
           if (e.key === "Enter") this.dialogue.skip();
+          if (e.key === "a" || e.key === "A") this.dialogue.toggleAuto();
+          if (e.key === "l" || e.key === "L") this.dialogue.toggleLog();
           if (e.key === "z" || e.key === "Z" || e.key === " ") this.dialogue.advance();
           return;
         }
@@ -3053,6 +3183,8 @@
         }
         if (this.handleCanvasTap(e)) return;
         if (this.dialogue.active) {
+          const pos = this.canvasPoint(e);
+          if (this.dialogue.handleControlTap(pos.x, pos.y)) return;
           this.dialogue.advance();
           return;
         }
@@ -3600,6 +3732,8 @@
       if (this.dialogue.active) {
         if (justPressed(0)) this.dialogue.advance();
         if (justPressed(1)) this.dialogue.skip();
+        if (justPressed(2)) this.dialogue.toggleLog();
+        if (justPressed(3)) this.dialogue.toggleAuto();
         this.gamepad.prevButtons = buttons;
         return;
       }
@@ -4642,7 +4776,23 @@
 
         const currentCard = this.boss.currentCard;
         const currentRatio = currentCard?.survival ? 1 : Math.max(0, this.boss.hp / this.boss.maxHp);
-        if (this.boss.cardIndex === 0) {
+        if (currentCard?.lifeBars > 1) {
+          for (let i = 0; i < currentCard.lifeBars; i += 1) {
+            const barNumberFromBottom = currentCard.lifeBars - i;
+            let state = "empty";
+            let ratio = 0;
+            if (barNumberFromBottom > currentCard.remainingLifeBars) {
+              state = "empty";
+            } else if (barNumberFromBottom === currentCard.remainingLifeBars) {
+              state = "current";
+              ratio = currentRatio;
+            } else {
+              state = "reserve";
+              ratio = 1;
+            }
+            drawLifeBar(barBaseY + i * (barHeight + barGap), ratio, state);
+          }
+        } else if (this.boss.cardIndex === 0) {
           drawLifeBar(barBaseY, currentRatio);
         } else {
           // 1本目の破壊後に残り2本を追加し、下段（第2ライフ）から削る。
@@ -4658,7 +4808,8 @@
             : Math.max(0, Math.ceil((card.duration - card.age) / 60));
           const survivalUrgent = card.survival && card.survivalTimer <= 10;
           ctx.fillStyle = survivalUrgent ? "rgba(102, 18, 14, 0.86)" : "rgba(8, 18, 15, 0.76)";
-          const spellBoxY = this.boss.cardIndex === 0 ? barBaseY + 16 : barBaseY + barHeight * 2 + barGap + 9;
+          const visibleBossBars = Math.max(1, card.lifeBars || (this.boss.cardIndex === 0 ? 1 : 2));
+          const spellBoxY = barBaseY + visibleBossBars * (barHeight + barGap) + 8;
           ctx.fillRect(78, spellBoxY, W - 156, 28);
           ctx.fillStyle = survivalUrgent ? "#fff0e8" : "#fff1a8";
           ctx.font = `800 ${survivalUrgent ? 18 : 15}px system-ui, sans-serif`;
@@ -4667,10 +4818,12 @@
         }
       }
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.68)";
-      ctx.font = "12px system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("花粉滅殺サバイバー", W / 2, H - 12);
+      if (!this.dialogue.active && this.state.mode !== "clear") {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.68)";
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("花粉滅殺サバイバー", W / 2, H - 12);
+      }
 
       if (this.state.messageTimer > 0) {
         ctx.fillStyle = "rgba(9, 20, 15, 0.68)";
