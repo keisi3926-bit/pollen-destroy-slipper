@@ -1,8 +1,13 @@
 {
-  "version": "0.38.0",
+  "version": "0.38.1",
   "build": "2026-06-26",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.38.1",
+      "date": "2026-06-28",
+      "summary": "Stage4の戦闘前・撃破後会話を追加。第二神威「凍花白嵐」をボス無敵の耐久神威へ変更し、非衝突の装飾雪結晶レイヤーを実装。第三神威「凍林横葬」を履歴付きランダム安全ゾーン方式へ調整。"
+    },
     {
       "version": "0.38.0",
       "date": "2026-06-28",
@@ -295,6 +300,7 @@
     "assets/stage4/enemy-small.png",
     "assets/stage4/enemy-medium.png",
     "assets/stage4/enemy-large.png",
+    "assets/stage4/decorative-snowflakes.png",
     "assets/audio/stage4.mp3",
     "assets/audio/shirakaba-boss.mp3"
   ]

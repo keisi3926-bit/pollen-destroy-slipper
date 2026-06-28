@@ -36,6 +36,7 @@
     enemyLarge: "assets/stage4/enemy-large.png",
     boss: "assets/stage4/shirakaba-priest.png",
     cutin: "assets/stage4/shirakaba-cut-in.png",
+    decorativeSnowflakes: "assets/stage4/decorative-snowflakes.png",
     stageBgm: "assets/audio/stage4.mp3",
     bossBgm: "assets/audio/shirakaba-boss.mp3",
   };
@@ -119,7 +120,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.38.0";
+  const APP_VERSION = "0.38.1";
   const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -217,6 +218,19 @@
     { time: 2760, pattern: "birchFrozenLane" },
     { time: 3070, pattern: "birchWhiteout" },
   ];
+  const STAGE4_SNOW_DECOR_CONFIG = {
+    desktopMax: 16,
+    mobileMax: 9,
+    spawnInterval: 18,
+    minSize: 38,
+    maxSize: 92,
+    opacity: 0.28,
+  };
+  const BIRCH_WALL_CONFIG = {
+    easy: { zones: 5, safeZones: 2, interval: 230, warningFrames: 78, liveFrames: 76, growFrames: 18, lengthRatio: 0.54, wallHeight: 88, branchBullets: 0 },
+    normal: { zones: 5, safeZones: 1, interval: 195, warningFrames: 68, liveFrames: 82, growFrames: 15, lengthRatio: 0.55, wallHeight: 92, branchBullets: 1 },
+    hard: { zones: 5, safeZones: 1, interval: 165, warningFrames: 60, liveFrames: 88, growFrames: 12, lengthRatio: 0.58, wallHeight: 96, branchBullets: 2 },
+  };
   const EXTEND_THRESHOLDS = [30000, 80000, 150000];
   const DIFFICULTY_CONFIG = {
     easy: {
@@ -431,8 +445,8 @@
       warning: "吹雪停止――凍花聖堂、顕現",
       enemyFamily: "birch",
       introScene: null,
-      bossScene: null,
-      clearScene: null,
+      bossScene: "stage4_boss_intro",
+      clearScene: "stage4_boss_defeat",
       endingScene: null,
       clearMessage: "STAGE4 CLEAR",
       clearSubtitle: "白銀樹海、突破完了",
@@ -455,11 +469,11 @@
           },
           {
             name: "第二神威「凍花白嵐」",
-            duration: 1980,
-            durationTimes: { easy: 2700, normal: 2280, hard: 1980 },
-            hp: 640,
+            duration: 1800,
+            hp: 1,
             pattern: "birchWhiteBlizzard",
-            type: "spell",
+            survival: true,
+            survivalTimeMultiplier: 1,
           },
           {
             name: "第三神威「凍林横葬」",
@@ -714,6 +728,27 @@
       { speaker: "system", text: "TO BE CONTINUED", portrait: "player.png", side: "left" },
       { speaker: "player", text: "春を抜けたら秋だった。", portrait: "player.png", side: "left" },
       { speaker: "player", text: "花粉って、季節をまたぐなよ……。", portrait: "player.png", side: "left" },
+    ],
+    stage4_boss_intro: [
+      { speaker: "boss", text: "ようこそ。白き静寂の聖域へ", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "ずいぶん寒そうな玄関だな。スリッパが凍っちまうぜ", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "春は騒がしすぎます", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "boss", text: "芽吹き、目覚め、呼吸し、そして苦しむ", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "だから全部凍らせるってか？", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "凍れば、苦しむこともありません", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "boss", text: "大花粉主大神がお目覚めになるまで――", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "boss", text: "あなたも、この白き静寂に沈みなさい", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "お断りだ！", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "玄関ってのはな、帰ってくるためにあるんだよ！", portrait: "player.png", side: "left" },
+    ],
+    stage4_boss_defeat: [
+      { speaker: "boss", text: "なぜ……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "boss", text: "なぜ、まだ呼吸を続けているのです……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "寒いからって、ずっと寝てるわけにはいかねえだろ", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "大花粉主大神は……すでに……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "boss", text: "四季の花粉を集めておられます……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "だったら、次はそいつを滅殺するだけだ", portrait: "player.png", side: "left" },
+      { speaker: "boss", text: "春は……必ず……訪れる……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
     ],
   };
 
@@ -2105,11 +2140,15 @@
       }
     },
 
-    birchWhiteBlizzard(boss, game, card) {
-      const interval = game.difficulty.scaleFireInterval(11);
-      if (card.age % interval !== 1) return;
+    birchWhiteBlizzard(boss, game, card, decorate = true) {
       const cycle = Math.floor(card.age / 240) % 2;
       const fromLeft = cycle === 0;
+      game.stage4SnowDirection = fromLeft ? 1 : -1;
+      if (decorate && card.age % STAGE4_SNOW_DECOR_CONFIG.spawnInterval === 1) {
+        game.spawnDecorativeSnowflake(game.stage4SnowDirection);
+      }
+      const interval = game.difficulty.scaleFireInterval(11);
+      if (card.age % interval !== 1) return;
       const y = 110 + ((card.age * 53) % (H - 210));
       const speed = game.difficulty.scaleSpeed(2.0 + (card.age % 4) * 0.08);
       const vx = fromLeft ? speed : -speed;
@@ -2121,25 +2160,11 @@
     },
 
     birchHorizontalBurial(boss, game, card) {
-      BOSS_PATTERNS.birchWhiteBlizzard(boss, game, card);
-      const interval = game.difficulty.scaleFireInterval(card.frenzy ? 140 : 190);
+      BOSS_PATTERNS.birchWhiteBlizzard(boss, game, card, false);
+      const config = BIRCH_WALL_CONFIG[game.difficulty.current];
+      const interval = Math.max(90, Math.round(config.interval * (card.frenzy ? 0.82 : 1)));
       if (card.age % interval !== 1) return;
-      const slots = 5;
-      const safeSlot = Math.floor(card.age / interval) % slots;
-      const slotHeight = 112;
-      for (let slot = 0; slot < slots; slot += 1) {
-        if (slot === safeSlot) continue;
-        const y = 150 + slot * slotHeight;
-        game.iceWalls.push({
-          side: slot % 2 === 0 ? "left" : "right",
-          y,
-          height: 58,
-          maxLength: card.frenzy ? W * 0.72 : W * 0.62,
-          warn: 54,
-          live: 74,
-          age: 0,
-        });
-      }
+      game.spawnBirchWallPattern(config, card.frenzy);
     },
   };
 
@@ -2351,6 +2376,7 @@
       game.enemyBullets = [];
       game.lasers = [];
       game.iceWalls = [];
+      game.decorativeSnowflakes = [];
       for (let i = 0; i < 18; i += 1) {
         game.particles.push(new Particle(this.x + (Math.random() - 0.5) * 90, this.y + (Math.random() - 0.5) * 60, "#fff0a2"));
       }
@@ -2491,6 +2517,64 @@
     }
   }
 
+  class DecorativeSnowflake {
+    constructor(direction) {
+      this.direction = direction || 1;
+      this.size = STAGE4_SNOW_DECOR_CONFIG.minSize
+        + Math.random() * (STAGE4_SNOW_DECOR_CONFIG.maxSize - STAGE4_SNOW_DECOR_CONFIG.minSize);
+      this.fromTop = Math.random() < 0.3;
+      this.x = this.fromTop ? Math.random() * W : this.direction > 0 ? -this.size : W + this.size;
+      this.y = this.fromTop ? -this.size : 90 + Math.random() * (H - 170);
+      this.vx = this.direction * (0.45 + Math.random() * 0.55);
+      this.vy = 0.24 + Math.random() * 0.48;
+      this.rotation = Math.random() * TAU;
+      this.rotationSpeed = (Math.random() - 0.5) * 0.025;
+      this.opacity = STAGE4_SNOW_DECOR_CONFIG.opacity * (0.65 + Math.random() * 0.35);
+      this.variant = Math.floor(Math.random() * 4);
+    }
+
+    update(direction) {
+      this.direction = direction || this.direction;
+      const targetVx = this.direction * (0.52 + this.size / 180);
+      this.vx += (targetVx - this.vx) * 0.035;
+      this.x += this.vx;
+      this.y += this.vy;
+      this.rotation += this.rotationSpeed;
+    }
+
+    offscreen() {
+      return this.y > H + this.size || this.x < -this.size * 2 || this.x > W + this.size * 2;
+    }
+
+    draw(ctx, image, imageLoaded) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      ctx.globalAlpha = this.opacity;
+      if (imageLoaded) {
+        const crops = [
+          { x: 0, y: 0, w: 560, h: 570 },
+          { x: 670, y: 120, w: 480, h: 480 },
+          { x: 120, y: 610, w: 480, h: 480 },
+          { x: 630, y: 590, w: 570, h: 590 },
+        ];
+        const crop = crops[this.variant];
+        ctx.drawImage(image, crop.x, crop.y, crop.w, crop.h, -this.size / 2, -this.size / 2, this.size, this.size);
+      } else {
+        ctx.strokeStyle = "#d9f3ff";
+        ctx.lineWidth = 1.5;
+        for (let branch = 0; branch < 6; branch += 1) {
+          ctx.rotate(TAU / 6);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, this.size / 2);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   class DialogueManager {
     constructor(scenes, portraitBase, dialogueContext) {
       this.scenes = scenes;
@@ -2547,7 +2631,8 @@
       record.image.onerror = () => {
         record.failed = true;
       };
-      record.image.src = `${this.portraitBase}${fileName}?v=${APP_VERSION}`;
+      const src = fileName.includes("/") ? fileName : `${this.portraitBase}${fileName}`;
+      record.image.src = `${src}?v=${APP_VERSION}`;
       this.cache.set(fileName, record);
       return record;
     }
@@ -3151,6 +3236,15 @@
         this.suginomikotoCutinLoaded = false;
       };
       this.suginomikotoCutin.src = `${SUGINOMIKOTO_CUTIN_ASSET}?v=${APP_VERSION}`;
+      this.decorativeSnowflakeImage = new Image();
+      this.decorativeSnowflakeImageLoaded = false;
+      this.decorativeSnowflakeImage.onload = () => {
+        this.decorativeSnowflakeImageLoaded = true;
+      };
+      this.decorativeSnowflakeImage.onerror = () => {
+        this.decorativeSnowflakeImageLoaded = false;
+      };
+      this.decorativeSnowflakeImage.src = `${STAGE4_ASSETS.decorativeSnowflakes}?v=${APP_VERSION}`;
       this.titleMenu = new MenuManager();
       this.stageSelectMenu = new MenuManager([
         { label: "STAGE 1　春の花粉参道", action: "stage1" },
@@ -3178,6 +3272,10 @@
       this.particles = [];
       this.lasers = [];
       this.iceWalls = [];
+      this.decorativeSnowflakes = [];
+      this.stage4SnowDirection = 1;
+      this.stage4WallHistory = [];
+      this.lastStage4SafeZones = [];
       this.boss = null;
       this.playerSpellCount = 3;
       this.playerSpellTimer = 0;
@@ -3300,8 +3398,8 @@
       if (!STAGE_DEFINITIONS[stageId]) return false;
       this.currentMode = "stageSelect";
       this.start(false, false, stageId);
-      this.dialogue.completeNow();
       if (phase <= 0) return true;
+      this.dialogue.completeNow();
       this.state.time = this.currentStage.bossTime;
       this.spawnStageEnemies();
       if (!this.boss) return false;
@@ -3310,6 +3408,9 @@
       this.boss.y = 118;
       this.boss.cardIndex = clamp(phase - 1, 0, this.boss.spellCards.length - 1);
       this.boss.beginCurrentCard(this);
+      // The brand splash can still cover a debug-started battle. Keep the
+      // player safe long enough to inspect the requested phase after it fades.
+      this.player.invincible = Math.max(this.player.invincible, 3600);
       this.audio.playBoss(this.currentStage.bossBgm);
       this.state.bossNameTimer = 90;
       return true;
@@ -3346,6 +3447,10 @@
       this.particles = [];
       this.lasers = [];
       this.iceWalls = [];
+      this.decorativeSnowflakes = [];
+      this.stage4SnowDirection = 1;
+      this.stage4WallHistory = [];
+      this.lastStage4SafeZones = [];
       this.boss = null;
       this.playerSpellCount = carried ? carried.spellCount : keepScore ? preservedSpellCount : 3;
       spellButton.disabled = this.playerSpellCount <= 0;
@@ -3429,6 +3534,7 @@
       this.followers = [];
       this.lasers = [];
       this.iceWalls = [];
+      this.decorativeSnowflakes = [];
       this.boss = null;
       this.playerSpellTimer = 0;
       this.playerSpellActive = false;
@@ -3977,6 +4083,7 @@
       this.enemyBullets = [];
       this.lasers = [];
       this.iceWalls = [];
+      this.decorativeSnowflakes = [];
       this.powerItems = [];
       this.pointItems = [];
       this.particles = [];
@@ -4306,6 +4413,7 @@
       this.updateLasers();
       this.updateIceWalls();
       if (this.boss) this.boss.update(this, deltaTime);
+      this.updateDecorativeSnowflakes();
 
       this.resolveCollisions();
       if (this.pendingBossCardStart > 0) {
@@ -4614,6 +4722,61 @@
       return true;
     }
 
+    spawnDecorativeSnowflake(direction) {
+      const mobile = window.matchMedia("(max-width: 720px)").matches;
+      const limit = mobile ? STAGE4_SNOW_DECOR_CONFIG.mobileMax : STAGE4_SNOW_DECOR_CONFIG.desktopMax;
+      if (this.decorativeSnowflakes.length >= limit) return false;
+      this.decorativeSnowflakes.push(new DecorativeSnowflake(direction));
+      return true;
+    }
+
+    updateDecorativeSnowflakes() {
+      this.decorativeSnowflakes.forEach((flake) => flake.update(this.stage4SnowDirection));
+      this.decorativeSnowflakes = this.decorativeSnowflakes.filter((flake) => !flake.offscreen());
+    }
+
+    selectBirchSafeZones(config) {
+      const recent = new Set(this.stage4WallHistory.slice(-2));
+      let candidates = Array.from({ length: config.zones }, (_, index) => index).filter((index) => !recent.has(index));
+      if (candidates.length === 0) candidates = Array.from({ length: config.zones }, (_, index) => index);
+      const primary = candidates[Math.floor(Math.random() * candidates.length)];
+      const safeZones = [primary];
+      if (config.safeZones > 1) {
+        const adjacent = primary === config.zones - 1 ? primary - 1 : primary + 1;
+        safeZones.push(adjacent);
+      }
+      this.stage4WallHistory.push(primary);
+      if (this.stage4WallHistory.length > 3) this.stage4WallHistory.shift();
+      this.lastStage4SafeZones = safeZones.slice().sort((a, b) => a - b);
+      return new Set(safeZones);
+    }
+
+    spawnBirchWallPattern(config, frenzy = false) {
+      const safeZones = this.selectBirchSafeZones(config);
+      const playableTop = 150;
+      const playableBottom = H - 95;
+      const zoneStep = (playableBottom - playableTop) / Math.max(1, config.zones - 1);
+      for (let zone = 0; zone < config.zones; zone += 1) {
+        if (safeZones.has(zone)) continue;
+        const y = playableTop + zone * zoneStep;
+        for (const side of ["left", "right"]) {
+          this.iceWalls.push({
+            side,
+            zone,
+            y,
+            height: config.wallHeight,
+            maxLength: W * (config.lengthRatio + (frenzy ? 0.025 : 0)),
+            warn: config.warningFrames,
+            live: config.liveFrames,
+            growFrames: config.growFrames,
+            branchBullets: side === "left" ? config.branchBullets : 0,
+            branchesReleased: false,
+            age: 0,
+          });
+        }
+      }
+    }
+
     updateLasers() {
       this.lasers.forEach((l) => {
         l.age += 1;
@@ -4628,8 +4791,26 @@
     updateIceWalls() {
       this.iceWalls.forEach((wall) => {
         wall.age += 1;
+        if (!wall.branchesReleased && wall.age >= wall.warn) {
+          wall.branchesReleased = true;
+          for (let i = 0; i < (wall.branchBullets || 0); i += 1) {
+            const offset = (i - ((wall.branchBullets || 1) - 1) / 2) * 0.16;
+            const direction = wall.side === "left" ? 0 : Math.PI;
+            const speed = this.difficulty.scaleSpeed(1.28 + i * 0.08);
+            this.spawnEnemyBullet(new Bullet(
+              wall.side === "left" ? 8 : W - 8,
+              wall.y,
+              Math.cos(direction + offset) * speed,
+              Math.sin(direction + offset) * speed,
+              4,
+              "enemy",
+              "#dff6ff",
+              { shape: "needle" }
+            ));
+          }
+        }
         if (wall.age <= wall.warn || wall.age >= wall.warn + wall.live) return;
-        const progress = Math.min(1, (wall.age - wall.warn) / 12);
+        const progress = Math.min(1, (wall.age - wall.warn) / (wall.growFrames || 12));
         const length = wall.maxLength * progress;
         const hit = this.player.hitPoint;
         const withinY = Math.abs(hit.y - wall.y) < wall.height / 2 + this.player.r;
@@ -4846,6 +5027,7 @@
       this.enemyBullets = [];
       this.lasers = [];
       this.iceWalls = [];
+      this.decorativeSnowflakes = [];
       this.endPlayerSpell();
       this.audio.pauseStage();
       this.state.showMessage("消滅", 120);
@@ -4871,6 +5053,7 @@
       }
       this.drawBackground();
 
+      this.decorativeSnowflakes.forEach((flake) => flake.draw(ctx, this.decorativeSnowflakeImage, this.decorativeSnowflakeImageLoaded));
       this.lasers.forEach((l) => this.drawLaser(l));
       this.iceWalls.forEach((wall) => this.drawIceWall(wall));
       this.enemies.forEach((e) => e.draw(ctx));

@@ -193,6 +193,7 @@ Stage4 is registered as `stage4` with the title `第四面 白銀樹海・凍花
 - Stage BGM: `assets/audio/stage4.mp3`
 - Boss BGM: `assets/audio/shirakaba-boss.mp3`
 - Enemy images: `assets/stage4/enemy-small.png`, `enemy-medium.png`, `enemy-large.png`
+- Decorative snowflake layer: `assets/stage4/decorative-snowflakes.png`
 
 Missing Stage4 images or audio automatically fall back to Canvas placeholders or silent playback. Direct development entry points:
 
@@ -203,7 +204,7 @@ Missing Stage4 images or audio automatically fall back to Canvas placeholders or
 ?debug=1&stage=4&phase=3
 ```
 
-Stage4 wave timings and boss parameters are defined in `STAGE4_WAVES` and `STAGE_DEFINITIONS.stage4` in `game.js`.
+Stage4 wave timings and boss parameters are defined in `STAGE4_WAVES` and `STAGE_DEFINITIONS.stage4` in `game.js`. Decorative snow density is controlled by `STAGE4_SNOW_DECOR_CONFIG`; random wall timing, warning, safe zones and branch density are controlled by `BIRCH_WALL_CONFIG`.
 
 ## Stage2 BGM
 
