@@ -206,6 +206,32 @@ Missing Stage4 images or audio automatically fall back to Canvas placeholders or
 
 Stage4 wave timings and boss parameters are defined in `STAGE4_WAVES` and `STAGE_DEFINITIONS.stage4` in `game.js`. Decorative snow density is controlled by `STAGE4_SNOW_DECOR_CONFIG`; random wall timing, warning, safe zones and branch density are controlled by `BIRCH_WALL_CONFIG`.
 
+## Stage5 final battle
+
+Stage5 is registered as `stage5`. Its complete progression is controlled by `FINAL_STAGE_CONFIG` and `FinalStageDirector` in `game.js`:
+
+`final approach -> four-lord boss rush -> Daikafun Taikun cards 1-5 -> Daikafun Daijin card 6 -> Nameless Abyss -> ALL CLEAR`
+
+Assets can be replaced independently under `assets/stage5/`:
+
+- `final-layered-worldscape.jpg`
+- `daikafun-taikun.png` / `daikafun-taikun-cutin.png`
+- `daikafun-daijin.png` / `daikafun-daijin-cutin.png`
+- `nameless-abyss.png`
+
+Development entry points:
+
+```text
+?debug=1&stage=5&final=start
+?debug=1&stage=5&final=rush1  (rush1 through rush4)
+?debug=1&stage=5&final=taikun1  (taikun1 through taikun5)
+?debug=1&stage=5&final=daijin
+?debug=1&stage=5&final=abyss
+?debug=1&stage=5&final=clear
+```
+
+On a debug URL only: `F6` reduces the current boss HP to 1, `F7` skips the current phase, and `F8` clears bullets and special hazards.
+
 ## Stage2 BGM
 
 Stage2道中曲には「檜風疾走 - general of the cypress forest」、ボス曲には「ヒノキ将軍見参！」を使用しています。

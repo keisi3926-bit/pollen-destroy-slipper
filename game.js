@@ -40,6 +40,14 @@
     stageBgm: "assets/audio/stage4.mp3",
     bossBgm: "assets/audio/shirakaba-boss.mp3",
   };
+  const STAGE5_ASSETS = {
+    background: "assets/stage5/final-layered-worldscape.jpg",
+    sovereign: "assets/stage5/daikafun-taikun.png",
+    sovereignCutin: "assets/stage5/daikafun-taikun-cutin.png",
+    deity: "assets/stage5/daikafun-daijin.png",
+    deityCutin: "assets/stage5/daikafun-daijin-cutin.png",
+    abyss: "assets/stage5/nameless-abyss.png",
+  };
   const BGM_STAGE1 = "assets/audio/stage1_spring_pollen_path.mp3";
   const BGM_BOSS1 = "assets/audio/boss_suginomikoto.mp3";
   const BGM_STAGE2 = "assets/audio/stage2_theme.mp3";
@@ -56,6 +64,9 @@
     boss3: BGM_BOSS3,
     stage4: STAGE4_ASSETS.stageBgm,
     boss4: STAGE4_ASSETS.bossBgm,
+    stage5: STAGE4_ASSETS.stageBgm,
+    boss5: BGM_BOSS1,
+    abyss: BGM_BOSS3,
   };
   const SE_NAMES = [
     "item_p_small",
@@ -120,8 +131,8 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.38.1";
-  const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4"];
+  const APP_VERSION = "0.39.0";
+  const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4", "stage5"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
   const BOSS_DAMAGE_MULTIPLIER = 0.68;
@@ -230,6 +241,62 @@
     easy: { zones: 5, safeZones: 2, interval: 230, warningFrames: 78, liveFrames: 76, growFrames: 18, lengthRatio: 0.54, wallHeight: 88, branchBullets: 0 },
     normal: { zones: 5, safeZones: 1, interval: 195, warningFrames: 68, liveFrames: 82, growFrames: 15, lengthRatio: 0.55, wallHeight: 92, branchBullets: 1 },
     hard: { zones: 5, safeZones: 1, interval: 165, warningFrames: 60, liveFrames: 88, growFrames: 12, lengthRatio: 0.58, wallHeight: 96, branchBullets: 2 },
+  };
+  const FINAL_STAGE_CONFIG = {
+    approachFrames: 300,
+    intermissionFrames: 105,
+    bossRush: [
+      { id: "suginomikoto", name: "スギノミコト", asset: BOSS_ASSET, pattern: "normalSpread", hp: 260, duration: 1200 },
+      { id: "hinoki", name: "ヒノキ将軍", asset: HINOKI_BOSS_ASSET, pattern: "hinokiFan", hp: 300, duration: 1260 },
+      { id: "ragweed", name: "ロード・ラグウィード", asset: LORD_RAGWEED_ASSET, pattern: "ragweedPoisonBloom", hp: 340, duration: 1320 },
+      { id: "shirakaba", name: "シラカバ・プリースト", asset: STAGE4_ASSETS.boss, pattern: "birchCrystalBarrier", hp: 380, duration: 1380 },
+    ],
+    sovereignCards: [
+      { name: "第一神威「春天開門・杉神降臨」", hp: 430, duration: 1500, pattern: "finalSpringSummon", summons: ["suginomikoto"] },
+      { name: "第二神威「夏天布陣・檜将出陣」", hp: 470, duration: 1560, pattern: "finalSummerSummon", summons: ["hinoki"] },
+      { name: "第三神威「秋天侵蝕・豚草王戴冠」", hp: 510, duration: 1620, pattern: "finalAutumnSummon", summons: ["ragweed"] },
+      { name: "第四神威「冬天封界・白樺聖女降誕」", hp: 550, duration: 1680, pattern: "finalWinterSummon", summons: ["shirakaba"] },
+      { name: "第五神威「四天王総顕現・万花粉曼荼羅」", hp: 700, duration: 2100, pattern: "finalFourLordsMandala", summons: ["suginomikoto", "hinoki", "ragweed", "shirakaba"] },
+    ],
+    summonDensity: 0.58,
+    mandalaScheduleFrames: 150,
+    transformationFrames: 150,
+    deity: {
+      name: "大花粉大神",
+      hp: 1200,
+      duration: 3600,
+      cardName: "第六神威「第六天魔王・天地創造の儀」",
+      pattern: "finalCreationRite",
+      segments: [
+        { id: "heaven", start: 0.8 },
+        { id: "earth", start: 0.62 },
+        { id: "heavenEarth", start: 0.48 },
+        { id: "create", start: 0.34 },
+        { id: "make", start: 0.2 },
+        { id: "rush", start: 0 },
+      ],
+    },
+    glyphs: {
+      heaven: [
+        [0.18, 0.12, 0.82, 0.12], [0.5, 0.12, 0.5, 0.82], [0.12, 0.4, 0.88, 0.4],
+        [0.5, 0.4, 0.2, 0.88], [0.5, 0.4, 0.8, 0.88],
+      ],
+      earth: [
+        [0.2, 0.1, 0.2, 0.9], [0.08, 0.45, 0.38, 0.45], [0.08, 0.86, 0.4, 0.72],
+        [0.48, 0.12, 0.48, 0.88], [0.48, 0.18, 0.86, 0.18], [0.5, 0.5, 0.82, 0.38],
+        [0.5, 0.5, 0.82, 0.62], [0.54, 0.86, 0.9, 0.72],
+      ],
+    },
+    glyph: { warningFrames: 55, holdFrames: 105, spacing: 24 },
+    magma: { warningFrames: 62, riseFrames: 72, holdFrames: 72, fallFrames: 54, maxHeight: 330 },
+    trackingLaser: { warningFrames: 54, liveFrames: 72, restFrames: 48, turnRate: 0.018, width: 15 },
+    abyss: {
+      name: "名も無き深淵（アビス）",
+      hp: 5200,
+      duration: 36000,
+      attackNames: ["深淵・第一波", "深淵・第二波", "深淵・第三波"],
+      cycleFrames: 720,
+    },
   };
   const EXTEND_THRESHOLDS = [30000, 80000, 150000];
   const DIFFICULTY_CONFIG = {
@@ -484,6 +551,37 @@
             lifeBars: 3,
           },
         ],
+      },
+    },
+    stage5: {
+      id: "stage5",
+      title: "最終面　四季終端・深淵天蓋",
+      selectLabel: "STAGE 5　最終決戦",
+      bossLabel: "最終決戦",
+      background: STAGE5_ASSETS.background,
+      backgroundMode: "finalJourney",
+      bgm: "stage5",
+      bossBgm: "boss5",
+      waves: [],
+      bossTime: FINAL_STAGE_CONFIG.approachFrames,
+      warning: "四季の花粉、終端へ収束",
+      enemyFamily: "pollen",
+      introScene: null,
+      bossScene: null,
+      clearScene: null,
+      endingScene: null,
+      clearMessage: "ALL CLEAR",
+      clearSubtitle: "花粉滅殺、完遂",
+      clearFooter: "THANK YOU FOR PLAYING",
+      finalStage: true,
+      boss: {
+        name: "大花粉大君",
+        asset: STAGE5_ASSETS.sovereign,
+        cutin: STAGE5_ASSETS.sovereignCutin,
+        cutinLabel: "DAIKAFUN TAIkUN",
+        placeholder: "finalSovereign",
+        imageCrop: null,
+        spellCards: FINAL_STAGE_CONFIG.sovereignCards,
       },
     },
   };
@@ -920,11 +1018,11 @@
         normal: { highScore: 0, maxCheckpoint: 0, cleared: false, continues: 0 },
         hard: { highScore: 0, maxCheckpoint: 0, cleared: false, continues: 0 },
         highScores: {
-          easy: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, total: 0 },
-          normal: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, total: 0 },
-          hard: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, total: 0 },
+          easy: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0, total: 0 },
+          normal: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0, total: 0 },
+          hard: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0, total: 0 },
         },
-        clearFlags: { stage1: false, stage2: false, stage3: false, stage4: false },
+        clearFlags: { stage1: false, stage2: false, stage3: false, stage4: false, stage5: false },
         settings: { lastDifficulty: "normal", volume: 0.5, gamepadEnabled: true },
       };
     }
@@ -1786,6 +1884,8 @@
       lifeBars = 1,
       survivalTimeMultiplier = 1,
       survivalTimes = null,
+      summons = [],
+      enableFrenzy = true,
       onStart = null,
       onUpdate = null,
       onEnd = null,
@@ -1803,6 +1903,8 @@
       this.survival = survival;
       this.survivalTimeMultiplier = survivalTimeMultiplier;
       this.survivalTimes = survivalTimes;
+      this.summons = summons;
+      this.enableFrenzy = enableFrenzy;
       this.survivalDuration = 0;
       this.survivalTimer = 0;
       this.frenzy = false;
@@ -1841,8 +1943,8 @@
       if (this.survival) this.survivalTimer = Math.max(0, this.survivalTimer - deltaTime);
       const hpRatio = this.maxHp > 0 ? this.hp / this.maxHp : 0;
       const isFinalLife = boss.cardIndex === boss.spellCards.length - 1;
-      this.frenzy = (this.survival && this.survivalTimer <= 10)
-        || (!this.survival && isFinalLife && hpRatio <= 0.4);
+      this.frenzy = this.enableFrenzy && ((this.survival && this.survivalTimer <= 10)
+        || (!this.survival && isFinalLife && hpRatio <= 0.4));
       if (this.frenzy && !this.frenzyAnnounced) {
         this.frenzyAnnounced = true;
         game.state.showMessage(this.survival ? "発狂モード - LAST 10 SEC" : "発狂モード - HP 40%以下", 150);
@@ -2166,6 +2268,53 @@
       if (card.age % interval !== 1) return;
       game.spawnBirchWallPattern(config, card.frenzy);
     },
+
+    finalSpringSummon(boss, game, card) {
+      game.finalStageDirector?.ensureSummons(card.summons);
+      game.finalStageDirector?.runSummonPattern("suginomikoto", "normalSpread", card);
+      game.finalStageDirector?.runSovereignAssist(boss, card, "#f4d34a");
+    },
+
+    finalSummerSummon(boss, game, card) {
+      game.finalStageDirector?.ensureSummons(card.summons);
+      game.finalStageDirector?.runSummonPattern("hinoki", "hinokiFan", card);
+      game.finalStageDirector?.runSovereignAssist(boss, card, "#91dc72");
+    },
+
+    finalAutumnSummon(boss, game, card) {
+      game.finalStageDirector?.ensureSummons(card.summons);
+      game.finalStageDirector?.runSummonPattern("ragweed", "ragweedPoisonBloom", card);
+      game.finalStageDirector?.runSovereignAssist(boss, card, "#c9d957");
+    },
+
+    finalWinterSummon(boss, game, card) {
+      game.finalStageDirector?.ensureSummons(card.summons);
+      game.finalStageDirector?.runSummonPattern("shirakaba", "birchCrystalBarrier", card);
+      game.finalStageDirector?.runSovereignAssist(boss, card, "#dff6ff");
+    },
+
+    finalFourLordsMandala(boss, game, card) {
+      const director = game.finalStageDirector;
+      if (!director) return;
+      director.ensureSummons(card.summons);
+      const schedule = [
+        ["suginomikoto", "normalSpread"],
+        ["hinoki", "hinokiFan"],
+        ["ragweed", "ragweedPoisonBloom"],
+        ["shirakaba", "birchCrystalBarrier"],
+      ];
+      const slot = Math.floor(card.age / FINAL_STAGE_CONFIG.mandalaScheduleFrames) % schedule.length;
+      director.runSummonPattern(schedule[slot][0], schedule[slot][1], card, slot * 17);
+      director.runSovereignAssist(boss, card, "#f4d57a", 86);
+    },
+
+    finalCreationRite(boss, game, card) {
+      game.finalStageDirector?.updateCreationRite(boss, card);
+    },
+
+    abyssCycle(boss, game, card) {
+      game.finalStageDirector?.updateAbyssCycle(boss, card);
+    },
   };
 
   const BOSS_SPELL_LIBRARY = [
@@ -2188,7 +2337,7 @@
       this.definition = definition;
       this.x = W / 2;
       this.y = -95;
-      this.r = 42;
+      this.r = definition.radius || 42;
       this.age = 0;
       this.attackAge = 0;
       this.entered = false;
@@ -2377,6 +2526,10 @@
       game.lasers = [];
       game.iceWalls = [];
       game.decorativeSnowflakes = [];
+      if (game.currentStageId === "stage5") {
+        game.finalStageDirector?.clearSummons();
+        game.finalStageDirector?.clearSpecialHazards();
+      }
       for (let i = 0; i < 18; i += 1) {
         game.particles.push(new Particle(this.x + (Math.random() - 0.5) * 90, this.y + (Math.random() - 0.5) * 60, "#fff0a2"));
       }
@@ -2427,6 +2580,66 @@
     }
 
     drawBossPlaceholder(ctx) {
+      if (this.definition.placeholder === "abyss") {
+        const pulse = 1 + Math.sin(this.age * 0.045) * 0.08;
+        ctx.save();
+        ctx.scale(pulse, pulse);
+        const abyss = ctx.createRadialGradient(-8, -10, 6, 0, 0, 58);
+        abyss.addColorStop(0, "#a973d6");
+        abyss.addColorStop(0.24, "#40205f");
+        abyss.addColorStop(1, "#090312");
+        ctx.fillStyle = abyss;
+        ctx.strokeStyle = "#caa0ee";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 55, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#efe5ff";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 22, 10, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = "#16051f";
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, TAU);
+        ctx.fill();
+        for (let i = 0; i < 6; i += 1) {
+          const angle = this.age * 0.012 + i * TAU / 6;
+          ctx.fillStyle = i % 2 ? "#7850a0" : "#b07bd4";
+          ctx.beginPath();
+          ctx.arc(Math.cos(angle) * 72, Math.sin(angle) * 40, 8, 0, TAU);
+          ctx.fill();
+        }
+        ctx.restore();
+        return;
+      }
+      if (this.definition.placeholder === "finalSovereign" || this.definition.placeholder === "finalDeity") {
+        const deity = this.definition.placeholder === "finalDeity";
+        ctx.save();
+        ctx.scale(deity ? 1.18 : 1, deity ? 1.18 : 1);
+        ctx.fillStyle = deity ? "rgba(54,16,74,0.94)" : "rgba(65,49,12,0.92)";
+        ctx.strokeStyle = deity ? "#e5b4ff" : "#ffe77e";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, -20, 22, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-34, 58);
+        ctx.lineTo(-22, 0);
+        ctx.lineTo(0, -4);
+        ctx.lineTo(22, 0);
+        ctx.lineTo(34, 58);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = deity ? "#f5e1ff" : "#fff5b2";
+        ctx.font = "900 11px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(deity ? "大花粉大神" : "大花粉大君", 0, 26);
+        ctx.restore();
+        return;
+      }
       ctx.save();
       ctx.fillStyle = "rgba(15, 46, 29, 0.86)";
       ctx.strokeStyle = "rgba(221, 255, 205, 0.92)";
@@ -2467,15 +2680,16 @@
       ctx.fill();
       ctx.restore();
 
+      const render = this.definition.renderSize || { width: 96, height: 144 };
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(-50, -72, 100, 144, 12);
+      ctx.roundRect(-render.width / 2, -render.height / 2, render.width, render.height, 12);
       ctx.clip();
       const crop = this.definition.imageCrop;
       if (crop) {
-        ctx.drawImage(this.image, crop.sx, crop.sy, crop.sw, crop.sh, -48, -72, 96, 144);
+        ctx.drawImage(this.image, crop.sx, crop.sy, crop.sw, crop.sh, -render.width / 2, -render.height / 2, render.width, render.height);
       } else {
-        ctx.drawImage(this.image, 0, 0, this.image.width, this.image.height, -48, -72, 96, 144);
+        ctx.drawImage(this.image, 0, 0, this.image.width, this.image.height, -render.width / 2, -render.height / 2, render.width, render.height);
       }
       ctx.restore();
 
@@ -2483,6 +2697,572 @@
       ctx.beginPath();
       ctx.arc(0, 3, 5, 0, TAU);
       ctx.fill();
+    }
+  }
+
+  class FinalSummonAvatar {
+    constructor(definition, index = 0, total = 1) {
+      this.definition = definition;
+      this.id = definition.id;
+      this.name = definition.name;
+      this.index = index;
+      this.total = total;
+      this.x = W / 2;
+      this.y = 185;
+      this.r = 34;
+      this.image = new Image();
+      this.imageLoaded = false;
+      this.image.onload = () => { this.imageLoaded = true; };
+      this.image.onerror = () => { this.imageLoaded = false; };
+      this.image.src = `${definition.asset}?v=${APP_VERSION}`;
+    }
+
+    update(age) {
+      const spread = this.total <= 1 ? 0 : 114;
+      const center = (this.total - 1) / 2;
+      this.x = W / 2 + (this.index - center) * spread + Math.sin(age * 0.02 + this.index) * 12;
+      this.y = 190 + (this.index % 2) * 56 + Math.sin(age * 0.028 + this.index * 1.4) * 9;
+    }
+
+    draw(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.globalAlpha = 0.72;
+      ctx.globalCompositeOperation = "screen";
+      const aura = ctx.createRadialGradient(0, 0, 8, 0, 0, 48);
+      aura.addColorStop(0, "rgba(255,238,142,0.34)");
+      aura.addColorStop(1, "rgba(255,238,142,0)");
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(0, 0, 48, 0, TAU);
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+      if (this.imageLoaded) {
+        ctx.beginPath();
+        ctx.roundRect(-31, -48, 62, 96, 9);
+        ctx.clip();
+        ctx.drawImage(this.image, 0, 0, this.image.width, this.image.height, -31, -48, 62, 96);
+      } else {
+        ctx.fillStyle = "rgba(31,43,28,0.9)";
+        ctx.strokeStyle = "#fff0a0";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 29, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#fff8cf";
+        ctx.font = "800 10px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(this.name.slice(0, 5), 0, 4);
+      }
+      ctx.restore();
+    }
+  }
+
+  class FinalStageDirector {
+    constructor(game) {
+      this.game = game;
+      this.reset();
+    }
+
+    reset() {
+      this.active = false;
+      this.phase = "idle";
+      this.rushIndex = -1;
+      this.intermission = 0;
+      this.nextAction = null;
+      this.summons = [];
+      this.specialAge = 0;
+      this.creationSegment = null;
+      this.glyphWarning = null;
+      this.magma = null;
+      this.trackingLasers = [];
+      this.transformation = 0;
+      this.backgroundTint = 0;
+      this.abyssAttackName = "";
+    }
+
+    begin() {
+      this.reset();
+      this.active = true;
+      this.phase = "approach";
+      this.game.state.showMessage("FINAL STAGE - 四季終端", 150);
+    }
+
+    debugJump(target) {
+      const normalized = String(target || "start").toLowerCase();
+      if (normalized === "start" || normalized === "stage") return true;
+      const rushMatch = normalized.match(/^rush([1-4])$/);
+      if (rushMatch) {
+        this.startRushBoss(Number(rushMatch[1]) - 1);
+      } else {
+        const sovereignMatch = normalized.match(/^(?:taikun|sovereign)([1-5])$/);
+        if (sovereignMatch) {
+          this.startSovereign();
+          this.game.boss.cardIndex = Number(sovereignMatch[1]) - 1;
+          this.game.boss.beginCurrentCard(this.game);
+        } else if (normalized === "daijin" || normalized === "deity") {
+          this.startDeity();
+        } else if (normalized === "abyss") {
+          this.startAbyss();
+        } else if (normalized === "clear") {
+          this.finishAllClear();
+        } else {
+          return false;
+        }
+      }
+      this.game.player.invincible = Math.max(this.game.player.invincible, 3600);
+      return true;
+    }
+
+    update(deltaTime = FIXED_STEP_SECONDS) {
+      if (!this.active || this.game.currentStageId !== "stage5") return;
+      this.specialAge += 1;
+      this.summons.forEach((summon) => summon.update(this.specialAge));
+      this.updateSpecialHazards();
+      if (this.phase === "approach" && this.game.state.time >= FINAL_STAGE_CONFIG.approachFrames) {
+        this.startRushBoss(0);
+        return;
+      }
+      if (this.phase === "intermission") {
+        this.intermission -= 1;
+        if (this.intermission <= 0 && this.nextAction) {
+          const action = this.nextAction;
+          this.nextAction = null;
+          action();
+        }
+      } else if (this.phase === "transform") {
+        this.transformation -= 1;
+        this.backgroundTint = clamp(this.transformation / FINAL_STAGE_CONFIG.transformationFrames, 0, 1);
+        if (this.transformation <= 0) this.startDeity();
+      }
+    }
+
+    clearBattlefield() {
+      const game = this.game;
+      game.enemies = [];
+      game.playerBullets = [];
+      game.enemyBullets = [];
+      game.lasers = [];
+      game.iceWalls = [];
+      game.decorativeSnowflakes = [];
+      game.particles = [];
+      game.pendingBossCardStart = 0;
+      game.pendingBossDefeat = 0;
+      game.state.shake = 0;
+      this.clearSummons();
+      this.clearSpecialHazards();
+    }
+
+    createBoss(definition) {
+      this.clearBattlefield();
+      const boss = new Boss(definition);
+      boss.entered = true;
+      boss.dialogueStarted = true;
+      boss.y = 118;
+      boss.age = 0;
+      boss.beginCurrentCard(this.game);
+      this.game.boss = boss;
+      this.game.suginomikotoCutinLoaded = false;
+      this.game.suginomikotoCutin.src = `${definition.cutin || STAGE5_ASSETS.sovereignCutin}?v=${APP_VERSION}`;
+      DIALOGUE_CONTEXT.bossName = definition.name;
+      this.game.state.bossNameTimer = 150;
+      return boss;
+    }
+
+    rushDefinition(entry) {
+      return {
+        name: entry.name,
+        asset: entry.asset,
+        cutin: STAGE5_ASSETS.sovereignCutin,
+        cutinLabel: entry.name,
+        placeholder: entry.id,
+        spellCards: [{
+          name: `再戦「${entry.name}」`,
+          hp: entry.hp,
+          duration: entry.duration,
+          pattern: entry.pattern,
+          type: "normal",
+          enableFrenzy: false,
+        }],
+      };
+    }
+
+    startRushBoss(index) {
+      const entry = FINAL_STAGE_CONFIG.bossRush[index];
+      if (!entry) {
+        this.startSovereign();
+        return;
+      }
+      this.phase = "rush";
+      this.rushIndex = index;
+      this.specialAge = 0;
+      this.createBoss(this.rushDefinition(entry));
+      this.game.state.showMessage(`四天王再戦 ${index + 1}/4`, 120);
+      this.game.audio.playBoss("boss5");
+    }
+
+    startSovereign() {
+      this.phase = "sovereign";
+      this.specialAge = 0;
+      this.createBoss({
+        name: "大花粉大君",
+        asset: STAGE5_ASSETS.sovereign,
+        cutin: STAGE5_ASSETS.sovereignCutin,
+        cutinLabel: "DAIKAFUN TAIKUN",
+        placeholder: "finalSovereign",
+        renderSize: { width: 102, height: 154 },
+        spellCards: FINAL_STAGE_CONFIG.sovereignCards,
+      });
+      this.game.state.showMessage("大花粉大君　顕現", 160);
+    }
+
+    startTransformation() {
+      this.clearBattlefield();
+      this.game.boss = null;
+      this.phase = "transform";
+      this.transformation = FINAL_STAGE_CONFIG.transformationFrames;
+      this.backgroundTint = 1;
+      this.game.state.showMessage("大花粉大神へ変生", 150);
+      this.game.state.shake = 12;
+    }
+
+    startDeity() {
+      this.phase = "deity";
+      this.specialAge = 0;
+      this.backgroundTint = 0.32;
+      this.createBoss({
+        name: FINAL_STAGE_CONFIG.deity.name,
+        asset: STAGE5_ASSETS.deity,
+        cutin: STAGE5_ASSETS.deityCutin,
+        cutinLabel: "DAIKAFUN DAIJIN",
+        placeholder: "finalDeity",
+        renderSize: { width: 110, height: 160 },
+        spellCards: [{
+          name: FINAL_STAGE_CONFIG.deity.cardName,
+          hp: FINAL_STAGE_CONFIG.deity.hp,
+          duration: FINAL_STAGE_CONFIG.deity.duration,
+          pattern: FINAL_STAGE_CONFIG.deity.pattern,
+          type: "spell",
+        }],
+      });
+      this.game.state.showMessage("大花粉大神　天地創造", 160);
+    }
+
+    startAbyss() {
+      this.phase = "abyss";
+      this.specialAge = 0;
+      this.backgroundTint = 0.48;
+      this.createBoss({
+        name: FINAL_STAGE_CONFIG.abyss.name,
+        asset: STAGE5_ASSETS.abyss,
+        cutin: STAGE5_ASSETS.abyss,
+        cutinLabel: "NAMELESS ABYSS",
+        placeholder: "abyss",
+        renderSize: { width: 132, height: 132 },
+        radius: 54,
+        spellCards: [{
+          name: FINAL_STAGE_CONFIG.abyss.attackNames[0],
+          hp: FINAL_STAGE_CONFIG.abyss.hp,
+          duration: FINAL_STAGE_CONFIG.abyss.duration,
+          pattern: "abyssCycle",
+          type: "normal",
+          enableFrenzy: false,
+        }],
+      });
+      this.game.audio.playBoss("abyss");
+      this.game.state.showMessage("BONUS BATTLE - 名も無き深淵", 180);
+    }
+
+    handleBossDefeat() {
+      const game = this.game;
+      if (!this.active || game.currentStageId !== "stage5" || !game.boss) return false;
+      const x = game.boss.x;
+      const y = game.boss.y;
+      game.spawnBurst(x, y, this.phase === "abyss" ? "#c99cff" : "#fff09a", 64);
+      addScore(game, SCORE_VALUES.bossDefeat);
+      game.boss.defeated = true;
+      if (this.phase === "rush") {
+        const nextIndex = this.rushIndex + 1;
+        this.beginIntermission(() => this.startRushBoss(nextIndex));
+      } else if (this.phase === "sovereign") {
+        this.startTransformation();
+      } else if (this.phase === "deity") {
+        this.beginIntermission(() => this.startAbyss(), 140);
+      } else if (this.phase === "abyss") {
+        this.finishAllClear();
+      }
+      return true;
+    }
+
+    beginIntermission(nextAction, frames = FINAL_STAGE_CONFIG.intermissionFrames) {
+      this.clearBattlefield();
+      this.game.boss = null;
+      this.phase = "intermission";
+      this.intermission = frames;
+      this.nextAction = nextAction;
+      this.game.player.invincible = Math.max(this.game.player.invincible, frames + 60);
+    }
+
+    finishAllClear() {
+      const game = this.game;
+      this.clearBattlefield();
+      game.boss = null;
+      this.phase = "complete";
+      this.active = false;
+      addScore(game, SCORE_VALUES.stageClear * 2);
+      game.audio.pauseStage();
+      game.state.mode = "clear";
+      game.state.showMessage("ALL CLEAR", 9999);
+      game.saveCurrentRun(true);
+      game.refreshTitleMenu();
+    }
+
+    ensureSummons(ids = []) {
+      const currentIds = this.summons.map((summon) => summon.id).join("|");
+      if (currentIds === ids.join("|")) return;
+      const definitions = FINAL_STAGE_CONFIG.bossRush.filter((entry) => ids.includes(entry.id));
+      this.summons = definitions.map((entry, index) => new FinalSummonAvatar(entry, index, definitions.length));
+    }
+
+    clearSummons() {
+      this.summons = [];
+    }
+
+    runSummonPattern(id, pattern, sourceCard, offset = 0) {
+      const summon = this.summons.find((entry) => entry.id === id);
+      const fn = BOSS_PATTERNS[pattern];
+      if (!summon || !fn) return;
+      const age = Math.floor(sourceCard.age * FINAL_STAGE_CONFIG.summonDensity) + offset;
+      fn(summon, this.game, { age, frenzy: false });
+    }
+
+    runSovereignAssist(boss, card, color, interval = 104) {
+      const scaledInterval = this.game.difficulty.scaleFireInterval(interval);
+      if (card.age % scaledInterval !== 1) return;
+      const target = this.game.player.hitPoint;
+      const base = Math.atan2(target.y - boss.y, target.x - boss.x);
+      for (let i = -1; i <= 1; i += 1) {
+        const angle = base + i * 0.19;
+        const speed = this.game.difficulty.scaleSpeed(1.45);
+        this.game.spawnEnemyBullet(new Bullet(boss.x, boss.y + 12, Math.cos(angle) * speed, Math.sin(angle) * speed, 5, "enemy", color));
+      }
+    }
+
+    updateCreationRite(boss, card) {
+      const hpRatio = card.hp / Math.max(1, card.maxHp);
+      const segment = FINAL_STAGE_CONFIG.deity.segments.find((entry) => hpRatio >= entry.start)?.id || "rush";
+      if (segment !== this.creationSegment) {
+        this.specialAge = 0;
+        this.clearSpecialHazards();
+        this.creationSegment = segment;
+        const labels = { heaven: "天", earth: "地", heavenEarth: "天地", create: "創", make: "造", rush: "天地創造" };
+        this.game.state.showMessage(labels[segment], 90);
+      }
+      if (segment === "heaven") this.updateGlyphSequence("heaven", 250);
+      if (segment === "earth") this.updateGlyphSequence("earth", 250);
+      if (segment === "heavenEarth") this.updateGlyphSequence(Math.floor(this.specialAge / 260) % 2 ? "earth" : "heaven", 260);
+      if (segment === "create") this.updateMagmaSequence(300);
+      if (segment === "make") this.updateTrackingLaserSequence(boss, 250);
+      if (segment === "rush") {
+        this.updateGlyphSequence(Math.floor(this.specialAge / 300) % 2 ? "earth" : "heaven", 300);
+        this.updateMagmaSequence(390);
+        this.updateTrackingLaserSequence(boss, 320);
+      }
+      this.runSovereignAssist(boss, card, "#d2a4ff", 118);
+    }
+
+    updateGlyphSequence(id, cycleFrames) {
+      const cycleAge = this.specialAge % cycleFrames;
+      if (cycleAge === 1) {
+        this.clearGlyphBullets();
+        this.glyphWarning = { id, age: 0, spawned: false };
+      }
+    }
+
+    spawnGlyph(id) {
+      const lines = FINAL_STAGE_CONFIG.glyphs[id] || [];
+      const area = { x: 75, y: 165, w: W - 150, h: H - 330 };
+      const spacing = FINAL_STAGE_CONFIG.glyph.spacing;
+      for (const [x1, y1, x2, y2] of lines) {
+        const startX = area.x + x1 * area.w;
+        const startY = area.y + y1 * area.h;
+        const endX = area.x + x2 * area.w;
+        const endY = area.y + y2 * area.h;
+        const distance = Math.hypot(endX - startX, endY - startY);
+        const count = Math.max(2, Math.ceil(distance / spacing));
+        for (let i = 0; i <= count; i += 1) {
+          const t = i / count;
+          const bullet = new Bullet(startX + (endX - startX) * t, startY + (endY - startY) * t, 0, 0, 6, "enemy", id === "heaven" ? "#f4e4ff" : "#c9a0ff");
+          bullet.finalGlyph = true;
+          this.game.spawnEnemyBullet(bullet);
+        }
+      }
+    }
+
+    clearGlyphBullets() {
+      this.game.enemyBullets = this.game.enemyBullets.filter((bullet) => !bullet.finalGlyph);
+    }
+
+    updateMagmaSequence(cycleFrames) {
+      if (this.specialAge % cycleFrames === 1 && !this.magma) this.magma = { age: 0 };
+    }
+
+    updateTrackingLaserSequence(boss, cycleFrames) {
+      if (this.specialAge % cycleFrames !== 1) return;
+      const hit = this.game.player.hitPoint;
+      this.trackingLasers.push({
+        x: boss.x,
+        y: boss.y,
+        age: 0,
+        angle: Math.atan2(hit.y - boss.y, hit.x - boss.x),
+      });
+    }
+
+    updateSpecialHazards() {
+      if (this.glyphWarning) {
+        this.glyphWarning.age += 1;
+        if (!this.glyphWarning.spawned && this.glyphWarning.age >= FINAL_STAGE_CONFIG.glyph.warningFrames) {
+          this.glyphWarning.spawned = true;
+          this.spawnGlyph(this.glyphWarning.id);
+        }
+        if (this.glyphWarning.age >= FINAL_STAGE_CONFIG.glyph.warningFrames + FINAL_STAGE_CONFIG.glyph.holdFrames) {
+          this.clearGlyphBullets();
+          this.glyphWarning = null;
+        }
+      }
+      if (this.magma) {
+        this.magma.age += 1;
+        const height = this.getMagmaHeight(this.magma.age);
+        if (height > 0 && this.game.player.hitPoint.y > H - height) this.game.player.hit(this.game);
+        const total = FINAL_STAGE_CONFIG.magma.warningFrames + FINAL_STAGE_CONFIG.magma.riseFrames
+          + FINAL_STAGE_CONFIG.magma.holdFrames + FINAL_STAGE_CONFIG.magma.fallFrames;
+        if (this.magma.age > total) this.magma = null;
+      }
+      this.trackingLasers.forEach((laser) => {
+        laser.age += 1;
+        const config = FINAL_STAGE_CONFIG.trackingLaser;
+        const hit = this.game.player.hitPoint;
+        const target = Math.atan2(hit.y - laser.y, hit.x - laser.x);
+        let delta = Math.atan2(Math.sin(target - laser.angle), Math.cos(target - laser.angle));
+        delta = clamp(delta, -config.turnRate, config.turnRate);
+        if (laser.age <= config.warningFrames + config.liveFrames) laser.angle += delta;
+        if (laser.age > config.warningFrames && laser.age <= config.warningFrames + config.liveFrames) {
+          const dx = hit.x - laser.x;
+          const dy = hit.y - laser.y;
+          const along = dx * Math.cos(laser.angle) + dy * Math.sin(laser.angle);
+          const perpendicular = Math.abs(dx * Math.sin(laser.angle) - dy * Math.cos(laser.angle));
+          if (along > 0 && perpendicular < config.width + this.game.player.r) this.game.player.hit(this.game);
+        }
+      });
+      const laserLife = FINAL_STAGE_CONFIG.trackingLaser.warningFrames + FINAL_STAGE_CONFIG.trackingLaser.liveFrames;
+      this.trackingLasers = this.trackingLasers.filter((laser) => laser.age <= laserLife);
+    }
+
+    getMagmaHeight(age) {
+      const config = FINAL_STAGE_CONFIG.magma;
+      if (age <= config.warningFrames) return 0;
+      const riseAge = age - config.warningFrames;
+      if (riseAge <= config.riseFrames) return config.maxHeight * (riseAge / config.riseFrames);
+      if (riseAge <= config.riseFrames + config.holdFrames) return config.maxHeight;
+      const fallAge = riseAge - config.riseFrames - config.holdFrames;
+      return config.maxHeight * Math.max(0, 1 - fallAge / config.fallFrames);
+    }
+
+    clearSpecialHazards() {
+      this.clearGlyphBullets();
+      this.glyphWarning = null;
+      this.magma = null;
+      this.trackingLasers = [];
+      this.creationSegment = null;
+    }
+
+    updateAbyssCycle(boss, card) {
+      const config = FINAL_STAGE_CONFIG.abyss;
+      const localAge = card.age % config.cycleFrames;
+      const attackIndex = Math.floor(localAge / (config.cycleFrames / 3));
+      this.abyssAttackName = config.attackNames[attackIndex];
+      if (attackIndex === 0 && localAge % this.game.difficulty.scaleFireInterval(84) === 1) {
+        const count = this.game.difficulty.current === "easy" ? 10 : 14;
+        const gap = Math.floor(localAge / 84) % count;
+        for (let i = 0; i < count; i += 1) {
+          if (Math.abs(i - gap) <= 2) continue;
+          const angle = i * TAU / count + card.age * 0.006;
+          const speed = this.game.difficulty.scaleSpeed(0.82);
+          this.game.spawnEnemyBullet(new Bullet(boss.x, boss.y, Math.cos(angle) * speed, Math.sin(angle) * speed, 6, "enemy", "#a879d8"));
+        }
+      } else if (attackIndex === 1 && localAge % 230 === 1) {
+        const angle = Math.PI / 2 + Math.sin(card.age * 0.014) * 0.54;
+        this.trackingLasers.push({ x: boss.x, y: boss.y, age: 0, angle });
+      } else if (attackIndex === 2 && localAge % this.game.difficulty.scaleFireInterval(24) === 1) {
+        const angle = card.age * 0.055;
+        const speed = this.game.difficulty.scaleSpeed(0.92);
+        this.game.spawnEnemyBullet(new Bullet(boss.x, boss.y, Math.cos(angle) * speed, Math.sin(angle) * speed, 5, "enemy", "#7f62b5"));
+        this.game.spawnEnemyBullet(new Bullet(boss.x, boss.y, Math.cos(angle + Math.PI) * speed, Math.sin(angle + Math.PI) * speed, 5, "enemy", "#c29be8"));
+      }
+    }
+
+    draw(ctx) {
+      this.summons.forEach((summon) => summon.draw(ctx));
+      if (this.glyphWarning && !this.glyphWarning.spawned) {
+        ctx.save();
+        ctx.globalAlpha = 0.18 + Math.sin(this.glyphWarning.age * 0.3) * 0.08;
+        ctx.strokeStyle = "#efdfff";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(62, 148, W - 124, H - 292);
+        ctx.fillStyle = "#f8edff";
+        ctx.font = "900 88px serif";
+        ctx.textAlign = "center";
+        ctx.fillText(this.glyphWarning.id === "heaven" ? "天" : "地", W / 2, H / 2 + 30);
+        ctx.restore();
+      }
+      if (this.magma) this.drawMagma(ctx);
+      this.trackingLasers.forEach((laser) => this.drawTrackingLaser(ctx, laser));
+      if (this.phase === "transform" || this.backgroundTint > 0) {
+        const alpha = this.phase === "transform"
+          ? 0.35 + Math.sin(this.transformation * 0.12) * 0.18
+          : this.backgroundTint * 0.22;
+        ctx.fillStyle = `rgba(35, 0, 57, ${Math.max(0, alpha)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    drawMagma(ctx) {
+      const config = FINAL_STAGE_CONFIG.magma;
+      const height = this.getMagmaHeight(this.magma.age);
+      ctx.save();
+      if (this.magma.age <= config.warningFrames) {
+        ctx.fillStyle = `rgba(255,48,28,${0.08 + Math.sin(this.magma.age * 0.35) * 0.04})`;
+        ctx.fillRect(0, H - 80, W, 80);
+        ctx.fillStyle = "#ff9270";
+        ctx.font = "900 18px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("WARNING - MAGMA RISING", W / 2, H - 36);
+      } else {
+        const gradient = ctx.createLinearGradient(0, H - height, 0, H);
+        gradient.addColorStop(0, "rgba(255,117,40,0.72)");
+        gradient.addColorStop(0.45, "rgba(223,43,24,0.9)");
+        gradient.addColorStop(1, "rgba(65,0,16,0.96)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, H - height, W, height);
+      }
+      ctx.restore();
+    }
+
+    drawTrackingLaser(ctx, laser) {
+      const config = FINAL_STAGE_CONFIG.trackingLaser;
+      const live = laser.age > config.warningFrames;
+      ctx.save();
+      ctx.translate(laser.x, laser.y);
+      ctx.rotate(laser.angle);
+      ctx.globalAlpha = live ? 0.86 : 0.24 + Math.sin(laser.age * 0.45) * 0.08;
+      ctx.fillStyle = live ? "#b45cff" : "#efd9ff";
+      ctx.fillRect(0, -(live ? config.width : 2), H * 1.5, live ? config.width * 2 : 4);
+      if (live) {
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.fillRect(0, -3, H * 1.5, 6);
+      }
+      ctx.restore();
     }
   }
 
@@ -2929,6 +3709,16 @@
 
     draw(ctx, time) {
       if (!this.loaded || this.failed) return false;
+      if (this.mode === "finalJourney") {
+        const cropHeight = Math.min(this.image.height, this.image.width * H / W);
+        const progress = clamp(time / FINAL_STAGE_CONFIG.approachFrames, 0, 1);
+        const sourceY = (this.image.height - cropHeight) * (1 - progress);
+        ctx.drawImage(this.image, 0, sourceY, this.image.width, cropHeight, 0, 0, W, H);
+        const abyssTint = clamp((progress - 0.72) / 0.28, 0, 1);
+        ctx.fillStyle = `rgba(24, 4, 46, ${0.08 + abyssTint * 0.2})`;
+        ctx.fillRect(0, 0, W, H);
+        return true;
+      }
       const scroll = (time * 0.22) % H;
       this.drawCover(ctx, -scroll);
       this.drawCover(ctx, H - scroll);
@@ -3251,7 +4041,7 @@
         { label: "STAGE 2　檜風街道", action: "stage2" },
         { label: "STAGE 3　秋花粉の廃道", action: "stage3" },
         { label: "STAGE 4　白銀樹海・凍花聖堂", action: "stage4" },
-        { label: "STAGE 5　COMING SOON", action: "stage5", disabled: true },
+        { label: "STAGE 5　最終決戦", action: "stage5" },
       ]);
       this.optionsMenu = new MenuManager([
         { label: "BGM VOLUME", action: "bgm" },
@@ -3276,6 +4066,7 @@
       this.stage4SnowDirection = 1;
       this.stage4WallHistory = [];
       this.lastStage4SafeZones = [];
+      this.finalStageDirector = new FinalStageDirector(this);
       this.boss = null;
       this.playerSpellCount = 3;
       this.playerSpellTimer = 0;
@@ -3304,6 +4095,7 @@
       this.spawnedWaves = new Set();
       this.currentWave = 0;
       this.debugVisible = false;
+      this.debugMode = false;
       this.enemyBulletsSpawnedFrame = 0;
       this.enemyBulletSpawnHistory = [];
       this.spellKeyHeld = false;
@@ -3394,10 +4186,15 @@
       this.start(false, false, stageId);
     }
 
-    beginDebugStage(stageId, phase = 0) {
+    beginDebugStage(stageId, phase = 0, finalTarget = null) {
       if (!STAGE_DEFINITIONS[stageId]) return false;
+      this.debugMode = true;
       this.currentMode = "stageSelect";
       this.start(false, false, stageId);
+      if (stageId === "stage5") {
+        this.dialogue.completeNow();
+        return this.finalStageDirector.debugJump(finalTarget || (phase > 0 ? `taikun${clamp(phase, 1, 5)}` : "start"));
+      }
       if (phase <= 0) return true;
       this.dialogue.completeNow();
       this.state.time = this.currentStage.bossTime;
@@ -3451,6 +4248,7 @@
       this.stage4SnowDirection = 1;
       this.stage4WallHistory = [];
       this.lastStage4SafeZones = [];
+      this.finalStageDirector.reset();
       this.boss = null;
       this.playerSpellCount = carried ? carried.spellCount : keepScore ? preservedSpellCount : 3;
       spellButton.disabled = this.playerSpellCount <= 0;
@@ -3507,6 +4305,7 @@
         120
       );
       this.audio.playStage(this.currentStage.bgm);
+      if (this.currentStageId === "stage5") this.finalStageDirector.begin();
       if (!fromCheckpoint) this.startDialogue(this.currentStage.introScene);
     }
 
@@ -3535,6 +4334,7 @@
       this.lasers = [];
       this.iceWalls = [];
       this.decorativeSnowflakes = [];
+      this.finalStageDirector.reset();
       this.boss = null;
       this.playerSpellTimer = 0;
       this.playerSpellActive = false;
@@ -3597,6 +4397,20 @@
         }
         if (e.key === "F3") {
           if (!e.repeat) this.debugVisible = !this.debugVisible;
+          return;
+        }
+        if (this.debugMode && !e.repeat && e.key === "F6") {
+          if (this.boss?.currentCard && !this.boss.invincible) this.boss.currentCard.hp = Math.min(this.boss.currentCard.hp, 1);
+          return;
+        }
+        if (this.debugMode && !e.repeat && e.key === "F7") {
+          if (this.boss?.currentCard) this.boss.nextCard(this, this.boss.currentCard.survival ? "survival-timeout" : "hp-break");
+          return;
+        }
+        if (this.debugMode && !e.repeat && e.key === "F8") {
+          this.cancelEnemyBullets(false);
+          this.lasers = [];
+          this.finalStageDirector.clearSpecialHazards();
           return;
         }
         if (this.dialogue.active) {
@@ -3843,9 +4657,9 @@
           disabled: !this.save.isStageCleared("stage3"),
         },
         {
-          label: this.save.isStageCleared("stage4") ? "STAGE 5　COMING SOON" : "STAGE 5　未解放",
+          label: this.save.isStageCleared("stage4") ? STAGE_DEFINITIONS.stage5.selectLabel : "STAGE 5　未解放",
           action: "stage5",
-          disabled: true,
+          disabled: !this.save.isStageCleared("stage4"),
         },
       ]);
     }
@@ -4413,6 +5227,7 @@
       this.updateLasers();
       this.updateIceWalls();
       if (this.boss) this.boss.update(this, deltaTime);
+      if (this.currentStageId === "stage5") this.finalStageDirector.update(deltaTime);
       this.updateDecorativeSnowflakes();
 
       this.resolveCollisions();
@@ -4542,6 +5357,7 @@
     }
 
     spawnStageEnemies() {
+      if (this.currentStageId === "stage5") return;
       const t = this.state.time;
       this.currentStage.waves.forEach((wave, index) => {
         if (t >= wave.time && !this.spawnedWaves.has(index)) {
@@ -5021,6 +5837,7 @@
 
     defeatBoss() {
       if (!this.boss || this.boss.defeated) return;
+      if (this.currentStageId === "stage5" && this.finalStageDirector.handleBossDefeat()) return;
       this.boss.defeated = true;
       this.spawnBurst(this.boss.x, this.boss.y, "#b7ff8a", 90);
       addScore(this, SCORE_VALUES.bossDefeat + SCORE_VALUES.stageClear);
@@ -5056,6 +5873,7 @@
       this.decorativeSnowflakes.forEach((flake) => flake.draw(ctx, this.decorativeSnowflakeImage, this.decorativeSnowflakeImageLoaded));
       this.lasers.forEach((l) => this.drawLaser(l));
       this.iceWalls.forEach((wall) => this.drawIceWall(wall));
+      if (this.currentStageId === "stage5") this.finalStageDirector.draw(ctx);
       this.enemies.forEach((e) => e.draw(ctx));
       this.powerItems.forEach((item) => item.draw(ctx));
       this.pointItems.forEach((item) => item.draw(ctx));
@@ -5245,7 +6063,7 @@
       ctx.fillStyle = "#f5ffd9";
       ctx.font = "900 27px system-ui, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(this.currentStage.boss.cutinLabel, 18, H / 2 + 60);
+      ctx.fillText(this.boss?.definition?.cutinLabel || this.currentStage.boss.cutinLabel, 18, H / 2 + 60);
       ctx.fillStyle = "#ffe479";
       ctx.font = "800 15px system-ui, sans-serif";
       ctx.fillText(this.bossSpellCutinName, 18, H / 2 + 86);
@@ -5540,7 +6358,9 @@
 
         const currentCard = this.boss.currentCard;
         const currentRatio = currentCard?.survival ? 1 : Math.max(0, this.boss.hp / this.boss.maxHp);
-        if (currentCard?.lifeBars > 1) {
+        if (this.currentStageId === "stage5") {
+          drawLifeBar(barBaseY, currentRatio);
+        } else if (currentCard?.lifeBars > 1) {
           for (let i = 0; i < currentCard.lifeBars; i += 1) {
             const barNumberFromBottom = currentCard.lifeBars - i;
             let state = "empty";
@@ -5572,13 +6392,22 @@
             : Math.max(0, Math.ceil((card.duration - card.age) / 60));
           const survivalUrgent = card.survival && card.survivalTimer <= 10;
           ctx.fillStyle = survivalUrgent ? "rgba(102, 18, 14, 0.86)" : "rgba(8, 18, 15, 0.76)";
-          const visibleBossBars = Math.max(1, card.lifeBars || (this.boss.cardIndex === 0 ? 1 : 2));
+          const visibleBossBars = this.currentStageId === "stage5"
+            ? 1
+            : Math.max(1, card.lifeBars || (this.boss.cardIndex === 0 ? 1 : 2));
           const spellBoxY = barBaseY + visibleBossBars * (barHeight + barGap) + 8;
           ctx.fillRect(78, spellBoxY, W - 156, 28);
           ctx.fillStyle = survivalUrgent ? "#fff0e8" : "#fff1a8";
           ctx.font = `800 ${survivalUrgent ? 18 : 15}px system-ui, sans-serif`;
           ctx.textAlign = "center";
           ctx.fillText(card.survival ? `SURVIVE  ${rest}` : `${card.name}  ${rest}`, W / 2, spellBoxY + 20);
+        } else if (this.currentStageId === "stage5" && this.finalStageDirector.phase === "abyss") {
+          ctx.fillStyle = "rgba(20, 5, 28, 0.8)";
+          ctx.fillRect(110, barBaseY + 17, W - 220, 25);
+          ctx.fillStyle = "#e4c8ff";
+          ctx.font = "800 14px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(this.finalStageDirector.abyssAttackName, W / 2, barBaseY + 35);
         }
       }
 
@@ -5846,7 +6675,8 @@
     const requestedStage = debugParams.get("stage");
     const stageId = requestedStage ? (requestedStage.startsWith("stage") ? requestedStage : `stage${requestedStage}`) : null;
     const phase = Number.parseInt(debugParams.get("phase") || "0", 10) || 0;
-    if (stageId) game.beginDebugStage(stageId, phase);
+    const finalTarget = debugParams.get("final");
+    if (stageId) game.beginDebugStage(stageId, phase, finalTarget);
   }
   updateManager.init();
   requestAnimationFrame(game.loop);

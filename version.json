@@ -1,8 +1,13 @@
 {
-  "version": "0.38.1",
-  "build": "2026-06-26",
+  "version": "0.39.0",
+  "build": "2026-06-30",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.39.0",
+      "date": "2026-06-30",
+      "summary": "Stage5最終決戦を追加。四天王ボスラッシュ、大花粉大君の第一～第五神威、大花粉大神の第六神威、天・地の文字弾幕、創のマグマ、造の追尾レーザー、名も無き深淵戦、ALL CLEARまでの通し進行とデバッグ入口を実装。"
+    },
     {
       "version": "0.38.1",
       "date": "2026-06-28",
@@ -302,6 +307,12 @@
     "assets/stage4/enemy-large.png",
     "assets/stage4/decorative-snowflakes.png",
     "assets/audio/stage4.mp3",
-    "assets/audio/shirakaba-boss.mp3"
+    "assets/audio/shirakaba-boss.mp3",
+    "assets/stage5/final-layered-worldscape.jpg",
+    "assets/stage5/daikafun-taikun.png",
+    "assets/stage5/daikafun-taikun-cutin.png",
+    "assets/stage5/daikafun-daijin.png",
+    "assets/stage5/daikafun-daijin-cutin.png",
+    "assets/stage5/nameless-abyss.png"
   ]
 }

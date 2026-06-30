@@ -678,8 +678,103 @@ game.saveCurrentRun(false);
 assert.equal(game.save.data.highScores.hard.stage4, 10000, "Stage4 high score should store only points earned in Stage4");
 game.state.mode = "clear";
 game.leaveClearScreen();
-assert.equal(game.state.mode, "title", "final implemented arcade stage should return to title");
-assert.equal(game.titlePanel, "main", "arcade completion should return to the main title menu");
+assert.equal(game.currentStageId, "stage5", "arcade Stage4 clear should automatically advance to Stage5");
+assert.equal(game.currentMode, "arcade", "Stage5 transition should preserve arcade mode");
+assert.equal(game.finalStageDirector.phase, "approach", "Stage5 should begin with the final approach");
+assert.ok(game.background.image.src.includes("final-layered-worldscape.jpg"), "Stage5 should use the layered four-season background");
+assert.equal(game.score.value, 80000, "Stage5 should preserve the arcade score");
+
+game.state.time = game.currentStage.bossTime;
+game.finalStageDirector.update();
+const expectedRushNames = ["スギノミコト", "ヒノキ将軍", "ロード・ラグウィード", "シラカバ・プリースト"];
+for (let rush = 0; rush < expectedRushNames.length; rush += 1) {
+  assert.equal(game.finalStageDirector.phase, "rush", `boss rush ${rush + 1} should be active`);
+  assert.equal(game.boss.name, expectedRushNames[rush], `boss rush ${rush + 1} should use the configured lord`);
+  assert.equal(game.boss.spellCards.length, 1, "each rush boss should have one shortened HP bar");
+  game.boss.currentCard.hp = 0;
+  game.boss.nextCard(game, "hp-break");
+  game.pendingBossDefeat = 0;
+  game.defeatBoss();
+  game.finalStageDirector.intermission = 1;
+  game.finalStageDirector.update();
+}
+
+assert.equal(game.finalStageDirector.phase, "sovereign", "boss rush completion should summon Daikafun Taikun");
+assert.equal(game.boss.name, "大花粉大君", "the sovereign form should use the configured boss name");
+assert.equal(game.boss.spellCards.length, 5, "Daikafun Taikun should have five divine attacks");
+for (let cardIndex = 0; cardIndex < 5; cardIndex += 1) {
+  assert.equal(game.boss.cardIndex, cardIndex, `sovereign card ${cardIndex + 1} should run in order`);
+  game.boss.currentCard.age = 0;
+  game.boss.currentCard.update(game.boss, game);
+  assert.equal(
+    game.finalStageDirector.summons.length,
+    cardIndex === 4 ? 4 : 1,
+    `sovereign card ${cardIndex + 1} should show the configured invincible summons`
+  );
+  game.boss.currentCard.hp = 0;
+  game.boss.nextCard(game, "hp-break");
+  if (cardIndex < 4) finishBossCardTransition();
+}
+game.pendingBossDefeat = 0;
+game.defeatBoss();
+assert.equal(game.finalStageDirector.phase, "transform", "fifth divine attack should trigger transformation");
+assert.equal(game.finalStageDirector.summons.length, 0, "transformation should remove all four summons");
+game.finalStageDirector.transformation = 1;
+game.finalStageDirector.update();
+assert.equal(game.finalStageDirector.phase, "deity", "transformation should create Daikafun Daijin");
+assert.equal(game.boss.name, "大花粉大神", "transformed boss name should be updated");
+assert.equal(game.boss.currentCard.pattern, "finalCreationRite", "sixth divine attack should use the creation rite pattern");
+
+game.boss.currentCard.hp = game.boss.currentCard.maxHp;
+game.boss.currentCard.update(game.boss, game);
+game.finalStageDirector.specialAge = 1;
+game.boss.currentCard.update(game.boss, game);
+assert.equal(game.finalStageDirector.glyphWarning.id, "heaven", "high HP should begin with the Heaven glyph warning");
+for (let i = 0; i < 60; i += 1) game.finalStageDirector.updateSpecialHazards();
+assert.ok(game.enemyBullets.some((bullet) => bullet.finalGlyph), "Heaven should be formed from collidable bullets");
+
+game.boss.currentCard.hp = game.boss.currentCard.maxHp * 0.7;
+game.boss.currentCard.update(game.boss, game);
+assert.equal(game.finalStageDirector.creationSegment, "earth", "the next HP segment should switch to Earth");
+game.finalStageDirector.specialAge = 1;
+game.boss.currentCard.update(game.boss, game);
+assert.equal(game.finalStageDirector.glyphWarning.id, "earth", "Earth should use its own coordinate template");
+
+game.boss.currentCard.hp = game.boss.currentCard.maxHp * 0.4;
+game.boss.currentCard.update(game.boss, game);
+game.finalStageDirector.specialAge = 1;
+game.boss.currentCard.update(game.boss, game);
+assert.ok(game.finalStageDirector.magma, "Create should arm the rising magma hazard");
+for (let i = 0; i < 80; i += 1) game.finalStageDirector.updateSpecialHazards();
+assert.ok(game.finalStageDirector.getMagmaHeight(game.finalStageDirector.magma.age) > 0, "magma should rise after its warning");
+
+game.boss.currentCard.hp = game.boss.currentCard.maxHp * 0.25;
+game.boss.currentCard.update(game.boss, game);
+game.finalStageDirector.specialAge = 1;
+game.boss.currentCard.update(game.boss, game);
+assert.ok(game.finalStageDirector.trackingLasers.length > 0, "Make should create a warned tracking laser");
+
+game.boss.currentCard.hp = 0;
+game.boss.nextCard(game, "hp-break");
+game.pendingBossDefeat = 0;
+game.defeatBoss();
+game.finalStageDirector.intermission = 1;
+game.finalStageDirector.update();
+assert.equal(game.finalStageDirector.phase, "abyss", "sixth divine attack should lead to the Abyss bonus battle");
+assert.equal(game.boss.name, "名も無き深淵（アビス）", "Abyss should use its dedicated boss name");
+assert.equal(game.boss.currentCard.isSpell, false, "Abyss should use normal boss UI rather than divine attack UI");
+assert.ok(game.boss.currentCard.maxHp >= 5000, "Abyss should have a very long HP bar");
+game.boss.currentCard.age = 0;
+game.boss.currentCard.update(game.boss, game);
+assert.ok(game.enemyBullets.length > 0, "Abyss attack cycle should generate its first regular wave");
+
+game.boss.currentCard.hp = 0;
+game.boss.nextCard(game, "hp-break");
+game.pendingBossDefeat = 0;
+game.defeatBoss();
+assert.equal(game.state.mode, "clear", "Abyss defeat should reach the ALL CLEAR result");
+assert.equal(game.currentStage.clearMessage, "ALL CLEAR", "Stage5 result should identify the full clear");
+assert.equal(game.save.data.clearFlags.stage5, true, "Stage5 clear should be saved without changing legacy keys");
 
 game.beginStageSelect("stage2");
 assert.equal(game.currentMode, "stageSelect", "Stage Select should enter practice mode");
@@ -712,6 +807,29 @@ finishBossCardTransition();
 assert.equal(game.boss.currentCard.pattern, "birchHorizontalBurial", "Stage4 survival timeout should advance to phase 3");
 assert.equal(game.boss.invincible, false, "Stage4 survival completion should always release boss invincibility");
 assert.equal(game.decorativeSnowflakes.length, 0, "Stage4 decorative snow should clear on phase transition");
+
+const finalDebugTargets = [
+  ["rush1", "rush", "スギノミコト", 0],
+  ["rush2", "rush", "ヒノキ将軍", 0],
+  ["rush3", "rush", "ロード・ラグウィード", 0],
+  ["rush4", "rush", "シラカバ・プリースト", 0],
+  ["taikun1", "sovereign", "大花粉大君", 0],
+  ["taikun2", "sovereign", "大花粉大君", 1],
+  ["taikun3", "sovereign", "大花粉大君", 2],
+  ["taikun4", "sovereign", "大花粉大君", 3],
+  ["taikun5", "sovereign", "大花粉大君", 4],
+  ["daijin", "deity", "大花粉大神", 0],
+  ["abyss", "abyss", "名も無き深淵（アビス）", 0],
+];
+for (const [target, expectedPhase, expectedBoss, expectedCard] of finalDebugTargets) {
+  assert.equal(game.beginDebugStage("stage5", 0, target), true, `${target} debug entry should be available`);
+  assert.equal(game.finalStageDirector.phase, expectedPhase, `${target} should select the requested final phase`);
+  assert.equal(game.boss.name, expectedBoss, `${target} should create the requested boss`);
+  assert.equal(game.boss.cardIndex, expectedCard, `${target} should select the requested card`);
+  assert.ok(game.player.invincible >= 3600, `${target} should be safe behind the brand splash`);
+}
+assert.equal(game.beginDebugStage("stage5", 0, "clear"), true, "final clear debug entry should be available");
+assert.equal(game.state.mode, "clear", "final clear debug entry should open ALL CLEAR directly");
 
 game.beginStageSelect("stage1");
 game.dialogue.active = false;
