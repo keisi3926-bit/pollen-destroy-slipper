@@ -227,6 +227,24 @@ Stage5 music is split by progression:
 - `daijin-theme.mp3`: Daikafun Daijin
 - `abyss-first.mp3` / `abyss-second.mp3`: Nameless Abyss, switched at 50% HP
 
+## Mobile joystick and ending
+
+Touch movement uses a fixed-origin analog joystick. The outer ring remains at the first touch point, while only the knob follows the movement pointer. `SPELL` and `LOW SPEED` keep independent pointer IDs for multitouch.
+
+Defeating the Abyss starts the ending sequence: final dialogue, pollen stomp, scrolling credits, Shion Yuki unlock, EX Stage unlock and ALL CLEAR. Ending rewards are saved before credits begin, so skipping credits cannot lose unlocks. The ending theme is `assets/audio/ending-theme.mp3`.
+
+Saved progression remains under the legacy `pollenDestroySlipperSave` key and now includes `gameCleared`, `unlockedCharacters`, `selectedCharacter`, `exStageUnlocked`, `dialogueMode`, `endingViewed` and notification flags.
+
+Ending debug URLs:
+
+- `?debug=1&stage=5&final=abyss` - Abyss battle; use F6 for near-defeat
+- `?debug=1&ending=start` - ending lead-in
+- `?debug=1&ending=credits` - credits
+- `?debug=1&ending=shion` - survivor unlock
+- `?debug=1&ending=ex` - EX unlock
+- `?debug=1&ending=clear` - ALL CLEAR
+- `?debug=1&unlock=on|off|reset` - unlock state helpers
+
 Development entry points:
 
 ```text

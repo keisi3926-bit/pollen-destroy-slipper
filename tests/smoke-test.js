@@ -168,7 +168,7 @@ game.audio.setMute(false);
 assert.equal(game.audio.currentBGM.volume, 0.55, "unmute should restore the saved BGM volume");
 assert.equal(
   Array.from(game.titleMenu.items, (item) => item.label).join("|"),
-  "START GAME|STAGE SELECT|OPTIONS|FULLSCREEN|HOW TO PLAY|HIGH SCORE",
+  "START GAME|STAGE SELECT|SURVIVOR SELECT|OPTIONS|FULLSCREEN|HOW TO PLAY|HIGH SCORE",
   "title menu should expose Stage Select, Fullscreen and the existing entries"
 );
 assert.equal(game.fullscreen.supported, true, "fullscreen manager should detect the browser API");
@@ -178,7 +178,7 @@ assert.equal(game.fullscreen.label(), "FULLSCREEN ON", "fullscreen menu label sh
 sandbox.document.fullscreenElement = null;
 game.openOptions();
 assert.equal(game.titlePanel, "options");
-assert.equal(game.optionsMenu.items.length, 4, "options should contain BGM, SE, mute and back");
+assert.equal(game.optionsMenu.items.length, 5, "options should contain BGM, SE, mute, dialogue mode and back");
 const bgmBeforeTouch = game.audio.getBGMVolume();
 game.handleCanvasTap({ clientX: 350, clientY: 370 });
 assert.equal(game.audio.getBGMVolume(), Math.min(1, bgmBeforeTouch + 0.05), "options touch right side should increase BGM");
@@ -191,6 +191,12 @@ game.activateOptionItem();
 assert.equal(game.audio.settings.masterMute, true, "master mute option should toggle on");
 game.activateOptionItem();
 assert.equal(game.audio.settings.masterMute, false, "master mute option should toggle off");
+game.optionsMenu.index = 3;
+game.activateOptionItem();
+assert.equal(game.save.data.dialogueMode, "skipAll", "dialogue option should enable full auto skip");
+assert.equal(JSON.parse(localStorageData.get("pollenDestroySlipperSave")).dialogueMode, "skipAll", "dialogue mode should persist");
+game.activateOptionItem();
+assert.equal(game.save.data.dialogueMode, "show", "dialogue option should return to normal display");
 game.closeOptions();
 assert.equal(game.titlePanel, "main");
 
@@ -235,6 +241,7 @@ assert.equal(game.input.touchX, 330, "mouse movement should update target x");
 assert.equal(game.input.touchY, 500, "mouse movement should update target y");
 
 game.input.touchActive = false;
+game.input.mouseActive = false;
 canvas.dispatch("pointerdown", {
   button: 0,
   pointerType: "touch",
@@ -254,7 +261,35 @@ canvas.dispatch("pointerdown", {
 });
 assert.equal(game.input.touchActive, true, "right side touch should start movement");
 assert.equal(game.input.joystickOriginX, 340, "virtual joystick should start at the right thumb position");
-canvas.dispatch("pointerup", { pointerType: "touch" });
+assert.equal(game.input.touchPointerId, 8, "movement pointer should be tracked independently");
+canvas.dispatch("pointermove", {
+  pointerType: "touch",
+  pointerId: 8,
+  clientX: 420,
+  clientY: 540,
+});
+assert.equal(game.input.joystickOriginX, 340, "joystick outer ring must remain at the initial touch position");
+assert.equal(game.input.joystickOriginY, 500, "joystick center must not follow the moving finger");
+assert.ok(Math.hypot(game.input.touchMoveX, game.input.touchMoveY) <= 1, "joystick vector should be radius-limited");
+const touchPlayerX = game.player.x;
+const touchPlayerY = game.player.y;
+game.player.update(game.input, game.playerBullets, game);
+assert.ok(game.player.x > touchPlayerX && game.player.y > touchPlayerY, "joystick vector should move the player by speed");
+assert.notEqual(game.player.x, 420, "touch movement must not snap the player to the finger x coordinate");
+elements.get("slowButton").dispatch("pointerdown", { pointerId: 9, preventDefault() {} });
+assert.equal(game.input.touchPointerId, 8, "LOW SPEED multitouch must preserve the movement pointer");
+assert.equal(game.input.slow, true, "LOW SPEED should work while movement touch is held");
+elements.get("slowButton").dispatch("pointerup", { pointerId: 9 });
+elements.get("spellButton").dispatch("pointerdown", { pointerId: 10, preventDefault() {} });
+assert.equal(game.input.touchPointerId, 8, "SPELL multitouch must preserve the movement pointer");
+elements.get("spellButton").dispatch("pointerup", { pointerId: 10 });
+game.endPlayerSpell();
+game.playerSpellCooldown = 0;
+game.playerSpellCount = 3;
+canvas.dispatch("pointerup", { pointerType: "touch", pointerId: 8 });
+assert.equal(game.input.touchActive, false, "releasing the movement pointer should stop immediately");
+assert.equal(game.input.touchMoveX, 0, "releasing touch should clear horizontal joystick input");
+assert.equal(game.input.touchMoveY, 0, "releasing touch should clear vertical joystick input");
 
 let contextPrevented = false;
 canvas.dispatch("contextmenu", {
@@ -784,9 +819,49 @@ game.boss.currentCard.hp = 0;
 game.boss.nextCard(game, "hp-break");
 game.pendingBossDefeat = 0;
 game.defeatBoss();
-assert.equal(game.state.mode, "clear", "Abyss defeat should reach the ALL CLEAR result");
+assert.equal(game.state.mode, "ending", "Abyss defeat should begin the ending sequence");
 assert.equal(game.currentStage.clearMessage, "ALL CLEAR", "Stage5 result should identify the full clear");
 assert.equal(game.save.data.clearFlags.stage5, true, "Stage5 clear should be saved without changing legacy keys");
+assert.equal(game.save.data.gameCleared, true, "ALL CLEAR should persist the game-cleared flag before credits");
+assert.ok(game.save.data.unlockedCharacters.includes("shion"), "ALL CLEAR should unlock Shion before credits can be skipped");
+assert.equal(game.save.data.exStageUnlocked, true, "ALL CLEAR should unlock EX Stage before credits can be skipped");
+game.ending.timer = 1;
+game.update();
+assert.equal(game.dialogue.sceneName, "final_ending_intro", "ending should begin with the final conversation after silence");
+game.dialogue.completeNow();
+assert.equal(game.ending.phase, "pollenDrop", "first ending line should release the final falling pollen grain");
+game.ending.timer = 1;
+game.update();
+assert.equal(game.dialogue.sceneName, "final_ending_outro", "pollen stomp should lead to the ending message");
+game.dialogue.completeNow();
+assert.equal(game.ending.phase, "credits", "final conversation should start the credits");
+assert.equal(game.audio.currentBGMName, "ending", "credits should start the dedicated ending theme once");
+game.ending.skipCredits();
+assert.equal(game.ending.phase, "survivorUnlock", "credit skip should continue to survivor unlock rather than losing rewards");
+game.ending.timer = 1;
+game.update();
+assert.equal(game.ending.phase, "exUnlock", "survivor unlock should advance to EX unlock");
+game.ending.timer = 1;
+game.update();
+assert.equal(game.ending.phase, "allClear", "EX unlock should advance to ALL CLEAR");
+game.ending.timer = 1;
+game.update();
+assert.equal(game.state.mode, "title", "ending completion should return to title");
+assert.equal(game.save.data.endingViewed, true, "ending completion should be saved");
+game.openCharacterSelect();
+game.characterMenu.index = 1;
+game.activateCharacterItem();
+assert.equal(game.save.data.selectedCharacter, "shion", "unlocked Shion should be selectable");
+assert.equal(game.player.characterId, "shion", "selected survivor ID should be applied to the player");
+assert.equal(game.save.data.newCharacterNotificationSeen, true, "opening survivor select should clear its NEW notification");
+game.titlePanel = "stage";
+game.refreshTitleMenu();
+const exItem = game.stageSelectMenu.items.find((item) => item.action === "ex");
+assert.equal(exItem.disabled, false, "EX Stage should be selectable after ALL CLEAR");
+game.stageSelectMenu.index = game.stageSelectMenu.items.indexOf(exItem);
+game.activateStageSelectItem();
+assert.equal(game.titlePanel, "ex", "EX Stage should open its COMING SOON screen");
+assert.equal(game.save.data.exStageNotificationSeen, true, "opening EX Stage should clear its NEW notification");
 
 game.beginStageSelect("stage2");
 assert.equal(game.currentMode, "stageSelect", "Stage Select should enter practice mode");
@@ -841,7 +916,8 @@ for (const [target, expectedPhase, expectedBoss, expectedCard] of finalDebugTarg
   assert.ok(game.player.invincible >= 3600, `${target} should be safe behind the brand splash`);
 }
 assert.equal(game.beginDebugStage("stage5", 0, "clear"), true, "final clear debug entry should be available");
-assert.equal(game.state.mode, "clear", "final clear debug entry should open ALL CLEAR directly");
+assert.equal(game.state.mode, "ending", "final clear debug entry should open the ending sequence");
+assert.equal(game.ending.phase, "silence", "final clear debug entry should preserve the ending lead-in");
 
 game.beginStageSelect("stage1");
 game.dialogue.active = false;
@@ -865,5 +941,27 @@ assert.equal(game.continuesLeft, 1, "continue should consume one continue");
 assert.equal(game.continueCount, 1, "continue count should increase");
 assert.equal(game.power.value, game.power.max, "continue should revive with full power");
 assert.equal(game.life.lives, game.difficulty.config.initialLives, "continue should restore slipper stock without rewinding the boss");
+
+let skippedDialogueCompleted = false;
+game.save.saveProgress({ dialogueMode: "skipAll" });
+game.startDialogue("scene_intro", () => { skippedDialogueCompleted = true; });
+assert.equal(game.dialogue.active, false, "skip-all mode should not open the dialogue overlay");
+assert.equal(skippedDialogueCompleted, true, "skip-all mode should still run progression callbacks");
+game.save.saveProgress({ dialogueMode: "show" });
+
+assert.equal(game.debugEnding("credits"), true, "credits debug entry should be available");
+assert.equal(game.ending.phase, "credits", "credits debug entry should jump to scrolling credits");
+assert.equal(game.debugEnding("shion"), true, "survivor unlock debug entry should be available");
+assert.equal(game.ending.phase, "survivorUnlock", "survivor debug entry should show the unlock card");
+assert.equal(game.debugEnding("ex"), true, "EX unlock debug entry should be available");
+assert.equal(game.ending.phase, "exUnlock", "EX debug entry should show the unlock card");
+game.debugEnding("locked");
+assert.deepEqual(Array.from(game.save.data.unlockedCharacters), ["haou"], "locked debug state should restore the initial survivor list");
+assert.equal(game.save.data.exStageUnlocked, false, "locked debug state should relock EX Stage");
+game.debugEnding("unlocked");
+assert.ok(game.save.data.unlockedCharacters.includes("shion"), "unlocked debug state should unlock Shion");
+assert.equal(game.save.data.exStageUnlocked, true, "unlocked debug state should unlock EX Stage");
+game.debugEnding("reset");
+assert.equal(game.save.data.gameCleared, false, "save reset debug action should restore default progression");
 
 console.log("smoke test passed");

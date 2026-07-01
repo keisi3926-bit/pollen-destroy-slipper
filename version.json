@@ -1,8 +1,13 @@
 {
-  "version": "0.39.1",
-  "build": "2026-06-30",
+  "version": "0.40.0",
+  "build": "2026-07-01",
   "status": "MVP公開準備版",
   "updates": [
+    {
+      "version": "0.40.0",
+      "date": "2026-07-01",
+      "summary": "スマホ操作を開始位置固定の仮想スティックへ変更。ABYSS撃破後の最終会話、花粉踏み演出、専用曲付きエンドロール、結城紫苑・EX STAGE解放を追加。サバイバー選択、解放状態保存、会話一括スキップ、エンディング用デバッグ入口に対応。"
+    },
     {
       "version": "0.39.1",
       "date": "2026-06-30",
@@ -324,6 +329,7 @@
     "assets/audio/stage5/taikun-theme.mp3",
     "assets/audio/stage5/daijin-theme.mp3",
     "assets/audio/stage5/abyss-first.mp3",
-    "assets/audio/stage5/abyss-second.mp3"
+    "assets/audio/stage5/abyss-second.mp3",
+    "assets/audio/ending-theme.mp3"
   ]
 }

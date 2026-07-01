@@ -77,6 +77,7 @@
     daijin: STAGE5_ASSETS.daijinBgm,
     abyss: STAGE5_ASSETS.abyssFirstBgm,
     abyssBack: STAGE5_ASSETS.abyssSecondBgm,
+    ending: "assets/audio/ending-theme.mp3",
   };
   const SE_NAMES = [
     "item_p_small",
@@ -129,8 +130,27 @@
   const BOSS_CUTIN_FRAMES = 74;
   const MOBILE_CONTROLS = {
     moveRegionStart: 0.45,
-    joystickRadius: 42,
-    knobRadius: 19,
+    joystickDeadZone: 8,
+    joystickMaxRadius: 50,
+    joystickMoveSpeed: 5,
+    knobRadius: 18,
+  };
+  const SURVIVORS = {
+    haou: { id: "haou", name: "寿立覇王", portrait: "player.png" },
+    shion: { id: "shion", name: "結城紫苑", portrait: "player.png" },
+  };
+  const ENDING_CONFIG = {
+    bgm: "assets/audio/ending-theme.mp3",
+    silenceFrames: 75,
+    creditsSpeed: 0.72,
+    rewardFrames: 180,
+    allClearFrames: 240,
+    credits: [
+      "花粉滅殺サバイバー", "", "制作", "KEISHI'S ENTRANCE", "",
+      "ゲームデザイン", "KEISHI", "", "キャラクターデザイン", "KEISHI / AI CREATIVE SUPPORT", "",
+      "シナリオ", "KEISHI", "", "BGM", "ORIGINAL GAME MUSIC TEAM", "",
+      "AI制作協力", "OpenAI Codex", "", "Special Thanks", "ALL SURVIVORS", "", "KEISHI'S ENTRANCE",
+    ],
   };
   const DIALOGUE_CONTEXT = {
     playerName: "寿立覇王",
@@ -141,7 +161,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.39.1";
+  const APP_VERSION = "0.40.0";
   const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4", "stage5"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -756,6 +776,15 @@
       { speaker: "player", text: "次の敵が待っている。", portrait: "player.png", side: "left" },
       { speaker: "system", text: "King of Slipper 外伝は続く。", portrait: "player.png", side: "left" },
     ],
+    final_ending_intro: [
+      { speaker: "player", text: "……今度こそ、終わったよな？", portrait: "player.png", side: "left" },
+    ],
+    final_ending_outro: [
+      { speaker: "player", text: "滅殺完了", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "春も夏も、秋も冬も、来るなとは言わねえ", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "でも玄関に入るなら――", portrait: "player.png", side: "left" },
+      { speaker: "player", text: "ちゃんとスリッパ履いてこい！", portrait: "player.png", side: "left" },
+    ],
     stage2_boss_intro: [
       { speaker: "boss", text: "杉を退けたか。", portrait: "hinoki_shogun.png", side: "right" },
       { speaker: "boss", text: "だが、春の戦はまだ終わらぬ。", portrait: "hinoki_shogun.png", side: "right" },
@@ -1034,6 +1063,14 @@
         },
         clearFlags: { stage1: false, stage2: false, stage3: false, stage4: false, stage5: false },
         settings: { lastDifficulty: "normal", volume: 0.5, gamepadEnabled: true },
+        gameCleared: false,
+        unlockedCharacters: ["haou"],
+        selectedCharacter: "haou",
+        exStageUnlocked: false,
+        dialogueMode: "show",
+        endingViewed: false,
+        newCharacterNotificationSeen: false,
+        exStageNotificationSeen: false,
       };
     }
 
@@ -1059,6 +1096,10 @@
           data.highScores[difficulty].total = Math.max(data.highScores[difficulty].total || 0, legacyScore);
           if (data[difficulty].cleared) data.clearFlags.stage1 = true;
         }
+        data.unlockedCharacters = Array.from(new Set(["haou", ...(Array.isArray(stored.unlockedCharacters) ? stored.unlockedCharacters : [])]))
+          .filter((id) => SURVIVORS[id]);
+        if (!data.unlockedCharacters.includes(data.selectedCharacter)) data.selectedCharacter = "haou";
+        if (!["show", "skipAll"].includes(data.dialogueMode)) data.dialogueMode = "show";
         localStorage.setItem(this.key, JSON.stringify(data));
         return data;
       } catch {
@@ -1090,6 +1131,48 @@
 
     saveSettings(settings) {
       this.data.settings = { ...this.defaultData().settings, ...this.data.settings, ...settings };
+      localStorage.setItem(this.key, JSON.stringify(this.data));
+    }
+
+    saveProgress(values = {}) {
+      this.data = { ...this.data, ...values };
+      localStorage.setItem(this.key, JSON.stringify(this.data));
+    }
+
+    unlockAllClearRewards() {
+      const firstCharacterUnlock = !this.data.unlockedCharacters.includes("shion");
+      const firstExUnlock = !this.data.exStageUnlocked;
+      const unlockedCharacters = Array.from(new Set([...this.data.unlockedCharacters, "shion"]));
+      this.saveProgress({
+        gameCleared: true,
+        unlockedCharacters,
+        exStageUnlocked: true,
+        newCharacterNotificationSeen: firstCharacterUnlock ? false : this.data.newCharacterNotificationSeen,
+        exStageNotificationSeen: firstExUnlock ? false : this.data.exStageNotificationSeen,
+      });
+      return { firstCharacterUnlock, firstExUnlock };
+    }
+
+    setSelectedCharacter(id) {
+      if (!SURVIVORS[id] || !this.data.unlockedCharacters.includes(id)) return false;
+      this.saveProgress({ selectedCharacter: id });
+      return true;
+    }
+
+    resetUnlocks() {
+      this.saveProgress({
+        gameCleared: false,
+        unlockedCharacters: ["haou"],
+        selectedCharacter: "haou",
+        exStageUnlocked: false,
+        endingViewed: false,
+        newCharacterNotificationSeen: false,
+        exStageNotificationSeen: false,
+      });
+    }
+
+    resetAll() {
+      this.data = this.defaultData();
       localStorage.setItem(this.key, JSON.stringify(this.data));
     }
   }
@@ -1201,13 +1284,22 @@
       if (input.up || input.gpUp) my -= 1;
       if (input.down || input.gpDown) my += 1;
 
-      if (input.touchActive || input.mouseActive) {
+      if (input.mouseActive) {
         this.x += (input.touchX - this.x) * (slow ? 0.15 : 0.26);
         this.y += (input.touchY - this.y) * (slow ? 0.15 : 0.26);
-      } else if (mx || my) {
-        const len = Math.hypot(mx, my) || 1;
-        this.x += (mx / len) * speed;
-        this.y += (my / len) * speed;
+      } else {
+        if (input.touchActive) {
+          mx += input.touchMoveX;
+          my += input.touchMoveY;
+        }
+        if (mx || my) {
+          const len = Math.hypot(mx, my) || 1;
+          const scale = len > 1 ? 1 / len : 1;
+          const moveSpeed = input.touchActive ? MOBILE_CONTROLS.joystickMoveSpeed : speed;
+          const slowScale = slow ? 0.5 : 1;
+          this.x += mx * scale * moveSpeed * slowScale;
+          this.y += my * scale * moveSpeed * slowScale;
+        }
       }
 
       this.x = clamp(this.x, 24, W - 24);
@@ -3023,11 +3115,7 @@
       this.phase = "complete";
       this.active = false;
       addScore(game, SCORE_VALUES.stageClear * 2);
-      game.audio.pauseStage();
-      game.state.mode = "clear";
-      game.state.showMessage("ALL CLEAR", 9999);
-      game.saveCurrentRun(true);
-      game.refreshTitleMenu();
+      game.startEnding();
     }
 
     ensureSummons(ids = []) {
@@ -3699,6 +3787,191 @@
     }
   }
 
+  class EndingManager {
+    constructor(game) {
+      this.game = game;
+      this.reset();
+    }
+
+    reset() {
+      this.active = false;
+      this.phase = "idle";
+      this.timer = 0;
+      this.rewards = { firstCharacterUnlock: false, firstExUnlock: false };
+    }
+
+    start(target = "start") {
+      const game = this.game;
+      this.active = true;
+      this.phase = "silence";
+      this.timer = ENDING_CONFIG.silenceFrames;
+      this.rewards = game.save.unlockAllClearRewards();
+      game.saveCurrentRun(true);
+      game.refreshTitleMenu();
+      game.state.mode = "ending";
+      game.audio.stopBGM();
+      game.releaseTouchMovement();
+      game.enemyBullets = [];
+      game.playerBullets = [];
+      game.lasers = [];
+      game.iceWalls = [];
+      game.boss = null;
+      game.finalStageDirector.active = false;
+      game.finalStageDirector.clearSpecialHazards();
+      game.state.shake = 0;
+      game.state.message = "";
+      game.state.messageTimer = 0;
+      game.state.bossNameTimer = 0;
+      if (target === "credits") this.beginCredits();
+      if (target === "shion") this.showSurvivorUnlock();
+      if (target === "ex") this.showExUnlock();
+      if (target === "clear") this.showAllClear();
+    }
+
+    beginConversation() {
+      this.phase = "conversation";
+      this.game.startDialogue("final_ending_intro", () => {
+        this.phase = "pollenDrop";
+        this.timer = 60;
+      });
+    }
+
+    beginCredits() {
+      this.phase = "credits";
+      this.timer = 0;
+      this.game.audio.playBGM("ending", false);
+    }
+
+    showSurvivorUnlock() {
+      this.phase = "survivorUnlock";
+      this.timer = ENDING_CONFIG.rewardFrames;
+    }
+
+    showExUnlock() {
+      this.phase = "exUnlock";
+      this.timer = ENDING_CONFIG.rewardFrames;
+    }
+
+    showAllClear() {
+      this.phase = "allClear";
+      this.timer = ENDING_CONFIG.allClearFrames;
+    }
+
+    skipCredits() {
+      if (this.phase === "credits") this.showSurvivorUnlock();
+    }
+
+    update() {
+      if (!this.active || this.game.dialogue.active) return;
+      if (this.phase === "silence") {
+        this.timer -= 1;
+        if (this.timer <= 0) this.beginConversation();
+        return;
+      }
+      if (this.phase === "credits") {
+        this.timer += 1;
+        const contentHeight = ENDING_CONFIG.credits.length * 46 + H + 180;
+        if (this.timer * ENDING_CONFIG.creditsSpeed >= contentHeight) this.showSurvivorUnlock();
+        return;
+      }
+      if (this.phase === "pollenDrop") {
+        this.timer -= 1;
+        if (this.timer <= 0) {
+          this.game.spawnBurst(W / 2, H * 0.64, "#ffe777", 6);
+          this.game.audio.playSE("point_item", { cooldown: 0, maxVoices: 1 });
+          this.game.state.showMessage("ぺしっ", 70);
+          this.game.startDialogue("final_ending_outro", () => this.beginCredits());
+        }
+        return;
+      }
+      if (this.phase === "survivorUnlock") {
+        this.timer -= 1;
+        if (this.timer <= 0) this.showExUnlock();
+        return;
+      }
+      if (this.phase === "exUnlock") {
+        this.timer -= 1;
+        if (this.timer <= 0) this.showAllClear();
+        return;
+      }
+      if (this.phase === "allClear") {
+        this.timer -= 1;
+        if (this.timer <= 0) this.finish();
+      }
+    }
+
+    finish() {
+      this.game.save.saveProgress({ endingViewed: true });
+      this.active = false;
+      this.game.returnToTitle();
+      this.game.ensureTitleBGM();
+    }
+
+    skipRect() {
+      return { x: W - 108, y: H - 58, w: 88, h: 36 };
+    }
+
+    handleTap(x, y) {
+      if (this.phase !== "credits") return false;
+      const rect = this.skipRect();
+      if (x < rect.x || x > rect.x + rect.w || y < rect.y || y > rect.y + rect.h) return false;
+      this.skipCredits();
+      return true;
+    }
+
+    draw(ctx) {
+      if (!this.active || this.game.dialogue.active) return;
+      ctx.save();
+      ctx.fillStyle = "rgba(2, 4, 8, 0.82)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
+      if (this.phase === "credits") {
+        const startY = H - 40 - this.timer * ENDING_CONFIG.creditsSpeed;
+        ENDING_CONFIG.credits.forEach((line, index) => {
+          const y = startY + index * 46;
+          if (y < -50 || y > H + 50) return;
+          const heading = line && !line.includes(" ") && index > 0;
+          ctx.fillStyle = heading ? "#fff0a8" : "#f4f8ff";
+          ctx.font = heading ? "800 18px system-ui, sans-serif" : "16px system-ui, sans-serif";
+          ctx.fillText(line, W / 2, y);
+        });
+        const rect = this.skipRect();
+        ctx.fillStyle = "rgba(255,255,255,0.10)";
+        ctx.strokeStyle = "rgba(255,255,255,0.42)";
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.fillStyle = "#f7fff0";
+        ctx.font = "800 13px system-ui, sans-serif";
+        ctx.fillText("SKIP", rect.x + rect.w / 2, rect.y + 24);
+      } else if (this.phase === "pollenDrop") {
+        const progress = 1 - this.timer / 60;
+        const y = H * 0.2 + progress * H * 0.44;
+        ctx.fillStyle = "#ffe35e";
+        ctx.shadowColor = "#fff2a0";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(W / 2, y, 6, 0, TAU);
+        ctx.fill();
+      } else if (this.phase === "survivorUnlock") {
+        this.drawReward(ctx, "NEW SURVIVOR UNLOCKED", "結城紫苑", "#9fe9ff");
+      } else if (this.phase === "exUnlock") {
+        this.drawReward(ctx, "EX STAGE UNLOCKED", "イネノミカミ　COMING SOON", "#d9a8ff");
+      } else if (this.phase === "allClear") {
+        this.drawReward(ctx, "ALL CLEAR", "花粉、滅殺完了", "#fff0a8");
+      }
+      ctx.restore();
+    }
+
+    drawReward(ctx, title, subtitle, color) {
+      ctx.fillStyle = color;
+      ctx.font = "900 30px system-ui, sans-serif";
+      ctx.fillText(title, W / 2, H * 0.45);
+      ctx.fillStyle = "#f7fff0";
+      ctx.font = "800 21px system-ui, sans-serif";
+      ctx.fillText(subtitle, W / 2, H * 0.53);
+    }
+  }
+
   class BackgroundManager {
     constructor(src, mode = null) {
       this.image = new Image();
@@ -4050,6 +4323,7 @@
       };
       this.decorativeSnowflakeImage.src = `${STAGE4_ASSETS.decorativeSnowflakes}?v=${APP_VERSION}`;
       this.titleMenu = new MenuManager();
+      this.characterMenu = new MenuManager();
       this.stageSelectMenu = new MenuManager([
         { label: "STAGE 1　春の花粉参道", action: "stage1" },
         { label: "STAGE 2　檜風街道", action: "stage2" },
@@ -4061,6 +4335,7 @@
         { label: "BGM VOLUME", action: "bgm" },
         { label: "SE VOLUME", action: "se" },
         { label: "MASTER MUTE", action: "mute" },
+        { label: "会話表示", action: "dialogue" },
         { label: "BACK", action: "back" },
       ]);
       this.pauseMenu = new MenuManager();
@@ -4081,6 +4356,7 @@
       this.stage4WallHistory = [];
       this.lastStage4SafeZones = [];
       this.finalStageDirector = new FinalStageDirector(this);
+      this.ending = new EndingManager(this);
       this.boss = null;
       this.playerSpellCount = 3;
       this.playerSpellTimer = 0;
@@ -4114,8 +4390,11 @@
       this.enemyBulletSpawnHistory = [];
       this.spellKeyHeld = false;
       this.spellPointerHeld = false;
+      this.spellPointerId = null;
+      this.slowPointerId = null;
       this.titlePanel = "main";
       this.refreshTitleMenu();
+      this.applySelectedCharacter();
       this.dialogue = new DialogueManager(DIALOGUE_SCENES, PORTRAIT_BASE, DIALOGUE_CONTEXT);
       this.lastTime = 0;
       this.updateAccumulator = 0;
@@ -4133,11 +4412,14 @@
         gpFire: false,
         gpSlow: false,
         touchActive: false,
+        touchPointerId: null,
         mouseActive: false,
         touchX: W / 2,
         touchY: H - 90,
-        joystickOriginX: W * 0.78,
-        joystickOriginY: H * 0.78,
+        touchMoveX: 0,
+        touchMoveY: 0,
+        joystickOriginX: W * 0.76,
+        joystickOriginY: H * 0.72,
       };
       this.gamepad = {
         index: null,
@@ -4166,6 +4448,42 @@
       this.preloadBossImage(this.currentStage.boss.asset);
       this.suginomikotoCutinLoaded = false;
       this.suginomikotoCutin.src = `${this.currentStage.boss.cutin}?v=${APP_VERSION}`;
+    }
+
+    applySelectedCharacter() {
+      const selected = SURVIVORS[this.save.data.selectedCharacter] || SURVIVORS.haou;
+      this.save.data.selectedCharacter = selected.id;
+      DIALOGUE_CONTEXT.playerName = selected.name;
+      if (this.player) this.player.characterId = selected.id;
+    }
+
+    releaseTouchMovement(pointerId = null) {
+      if (pointerId !== null && this.input?.touchPointerId !== pointerId) return false;
+      if (!this.input) return false;
+      this.input.touchActive = false;
+      this.input.touchPointerId = null;
+      this.input.touchMoveX = 0;
+      this.input.touchMoveY = 0;
+      return true;
+    }
+
+    updateTouchVector() {
+      const dx = this.input.touchX - this.input.joystickOriginX;
+      const dy = this.input.touchY - this.input.joystickOriginY;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= MOBILE_CONTROLS.joystickDeadZone) {
+        this.input.touchMoveX = 0;
+        this.input.touchMoveY = 0;
+        return;
+      }
+      const magnitude = clamp(
+        (distance - MOBILE_CONTROLS.joystickDeadZone)
+          / (MOBILE_CONTROLS.joystickMaxRadius - MOBILE_CONTROLS.joystickDeadZone),
+        0,
+        1
+      );
+      this.input.touchMoveX = dx / distance * magnitude;
+      this.input.touchMoveY = dy / distance * magnitude;
     }
 
     captureRunState() {
@@ -4263,6 +4581,7 @@
       this.stage4WallHistory = [];
       this.lastStage4SafeZones = [];
       this.finalStageDirector.reset();
+      this.ending.reset();
       this.boss = null;
       this.playerSpellCount = carried ? carried.spellCount : keepScore ? preservedSpellCount : 3;
       spellButton.disabled = this.playerSpellCount <= 0;
@@ -4296,7 +4615,10 @@
       this.enemyBulletSpawnHistory = [];
       this.spellKeyHeld = false;
       this.spellPointerHeld = false;
-      this.input.touchActive = false;
+      this.spellPointerId = null;
+      this.slowPointerId = null;
+      this.input.slow = false;
+      this.releaseTouchMovement();
       this.input.mouseActive = false;
       this.input.fire = false;
       if (carried) this.power.value = carried.power;
@@ -4349,6 +4671,7 @@
       this.iceWalls = [];
       this.decorativeSnowflakes = [];
       this.finalStageDirector.reset();
+      this.ending.reset();
       this.boss = null;
       this.playerSpellTimer = 0;
       this.playerSpellActive = false;
@@ -4358,11 +4681,14 @@
       this.playerSpellCooldown = 0;
       this.spellKeyHeld = false;
       this.spellPointerHeld = false;
+      this.spellPointerId = null;
+      this.slowPointerId = null;
+      this.input.slow = false;
       this.playerSpellFirePlayed = false;
       this.playerCutinImpactPlayed = false;
       this.bossCutinBellPlayed = false;
       this.bossCutinReleasePlayed = false;
-      this.input.touchActive = false;
+      this.releaseTouchMovement();
       this.input.mouseActive = false;
       this.input.fire = false;
       this.state.time = 0;
@@ -4392,10 +4718,48 @@
       }
     }
 
+    startEnding(target = "start") {
+      this.ending.start(target);
+    }
+
+    debugEnding(target) {
+      this.debugMode = true;
+      if (target === "reset") {
+        this.save.resetAll();
+        this.applySelectedCharacter();
+        this.returnToTitle();
+        return true;
+      }
+      if (target === "locked") {
+        this.save.resetUnlocks();
+        this.applySelectedCharacter();
+        this.returnToTitle();
+        this.refreshTitleMenu();
+        return true;
+      }
+      if (target === "unlocked") {
+        this.save.unlockAllClearRewards();
+        this.returnToTitle();
+        this.refreshTitleMenu();
+        return true;
+      }
+      if (this.currentStageId !== "stage5") this.beginDebugStage("stage5", 0, "abyss");
+      this.startEnding(target || "start");
+      return true;
+    }
+
     startDialogue(sceneName, onComplete = null) {
       this.input.fire = false;
-      this.input.touchActive = false;
+      this.releaseTouchMovement();
       this.input.mouseActive = false;
+      this.input.slow = false;
+      this.slowPointerId = null;
+      this.spellPointerHeld = false;
+      this.spellPointerId = null;
+      if (sceneName && this.save.data.dialogueMode === "skipAll") {
+        if (onComplete) onComplete();
+        return;
+      }
       this.dialogue.start(sceneName, onComplete);
     }
 
@@ -4432,6 +4796,10 @@
           if (e.key === "a" || e.key === "A") this.dialogue.toggleAuto();
           if (e.key === "l" || e.key === "L") this.dialogue.toggleLog();
           if (e.key === "z" || e.key === "Z" || e.key === " ") this.dialogue.advance();
+          return;
+        }
+        if (this.state.mode === "ending") {
+          if (!e.repeat && (e.key === "Escape" || e.key === "Enter")) this.ending.skipCredits();
           return;
         }
         if (this.state.mode === "clear") {
@@ -4488,6 +4856,11 @@
           if (!this.dialogue.active) this.activatePlayerSpell();
           return;
         }
+        if (this.state.mode === "ending" && !this.dialogue.active) {
+          const pos = this.canvasPoint(e);
+          this.ending.handleTap(pos.x, pos.y);
+          return;
+        }
         if (this.handleCanvasTap(e)) return;
         if (this.dialogue.active) {
           const pos = this.canvasPoint(e);
@@ -4502,11 +4875,14 @@
         } else {
           const pos = this.canvasPoint(e);
           if (pos.x < W * MOBILE_CONTROLS.moveRegionStart) return;
+          if (this.input.touchPointerId !== null) return;
           this.input.touchActive = true;
+          this.input.touchPointerId = e.pointerId;
           this.input.joystickOriginX = pos.x;
           this.input.joystickOriginY = pos.y;
         }
         this.setTouch(e);
+        if (e.pointerType !== "mouse") this.updateTouchVector();
         canvas.setPointerCapture(e.pointerId);
       });
       canvas.addEventListener("pointermove", (e) => {
@@ -4515,19 +4891,20 @@
           this.setTouch(e);
           return;
         }
-        if (!this.input.touchActive) return;
+        if (!this.input.touchActive || this.input.touchPointerId !== e.pointerId) return;
         this.setTouch(e);
+        this.updateTouchVector();
       });
       canvas.addEventListener("pointerup", (e) => {
         if (e.pointerType === "mouse") this.input.fire = false;
-        else this.input.touchActive = false;
+        else this.releaseTouchMovement(e.pointerId);
       });
       canvas.addEventListener("pointercancel", (e) => {
         if (e.pointerType === "mouse") {
           this.input.fire = false;
           this.input.mouseActive = false;
         }
-        this.input.touchActive = false;
+        this.releaseTouchMovement(e.pointerId);
       });
       canvas.addEventListener("pointerleave", (e) => {
         if (e.pointerType === "mouse") {
@@ -4547,14 +4924,20 @@
           this.dialogue.advance();
           return;
         }
+        if (this.slowPointerId !== null) return;
+        this.slowPointerId = e.pointerId;
         this.input.slow = true;
         slowButton.classList.add("is-active");
       });
-      slowButton.addEventListener("pointerup", () => {
+      slowButton.addEventListener("pointerup", (e) => {
+        if (this.slowPointerId !== e.pointerId) return;
+        this.slowPointerId = null;
         this.input.slow = false;
         slowButton.classList.remove("is-active");
       });
-      slowButton.addEventListener("pointercancel", () => {
+      slowButton.addEventListener("pointercancel", (e) => {
+        if (this.slowPointerId !== e.pointerId) return;
+        this.slowPointerId = null;
         this.input.slow = false;
         slowButton.classList.remove("is-active");
       });
@@ -4567,14 +4950,19 @@
           this.dialogue.advance();
           return;
         }
-        if (this.spellPointerHeld) return;
+        if (this.spellPointerHeld || this.spellPointerId !== null) return;
+        this.spellPointerId = e.pointerId;
         this.spellPointerHeld = true;
         this.activatePlayerSpell();
       });
-      spellButton.addEventListener("pointerup", () => {
+      spellButton.addEventListener("pointerup", (e) => {
+        if (this.spellPointerId !== e.pointerId) return;
+        this.spellPointerId = null;
         this.spellPointerHeld = false;
       });
-      spellButton.addEventListener("pointercancel", () => {
+      spellButton.addEventListener("pointercancel", (e) => {
+        if (this.spellPointerId !== e.pointerId) return;
+        this.spellPointerId = null;
         this.spellPointerHeld = false;
       });
 
@@ -4589,6 +4977,17 @@
 
     handleTitleKey(key) {
       this.ensureTitleBGM();
+      if (this.titlePanel === "character") {
+        if (key === "ArrowUp" || key === "w" || key === "W") this.moveMenu(this.characterMenu, -1);
+        if (key === "ArrowDown" || key === "s" || key === "S") this.moveMenu(this.characterMenu, 1);
+        if (key === "z" || key === "Z" || key === " " || key === "Enter") this.activateCharacterItem();
+        if (key === "Escape") this.titlePanel = "main";
+        return;
+      }
+      if (this.titlePanel === "ex") {
+        if (key === "Escape" || key === "z" || key === "Z" || key === " " || key === "Enter") this.titlePanel = "stage";
+        return;
+      }
       if (this.titlePanel === "options") {
         if (key === "ArrowUp" || key === "w" || key === "W") this.moveMenu(this.optionsMenu, -1);
         if (key === "ArrowDown" || key === "s" || key === "S") this.moveMenu(this.optionsMenu, 1);
@@ -4630,6 +5029,7 @@
         this.stageSelectMenu.index = 0;
       }
       if (label === "OPTIONS") this.openOptions();
+      if (selected.action === "character") this.openCharacterSelect();
       if (selected.action === "fullscreen") this.toggleFullscreen();
       if (label === "HOW TO PLAY") this.titlePanel = this.titlePanel === "how" ? "main" : "how";
       if (label === "HIGH SCORE") this.titlePanel = this.titlePanel === "score" ? "main" : "score";
@@ -4648,6 +5048,10 @@
       this.titleMenu.setItems([
         { label: "START GAME" },
         { label: "STAGE SELECT", disabled: !this.save.isStageCleared("stage1") },
+        {
+          label: `SURVIVOR SELECT${!this.save.data.newCharacterNotificationSeen && this.save.data.unlockedCharacters.includes("shion") ? "  NEW" : ""}`,
+          action: "character",
+        },
         { label: "OPTIONS" },
         { label: "FULLSCREEN", action: "fullscreen", disabled: !this.fullscreen?.supported },
         { label: "HOW TO PLAY" },
@@ -4675,13 +5079,62 @@
           action: "stage5",
           disabled: !this.save.isStageCleared("stage4"),
         },
+        {
+          label: this.save.data.exStageUnlocked
+            ? `EX STAGE${this.save.data.exStageNotificationSeen ? "" : "  NEW"}`
+            : "EX STAGE　LOCKED",
+          action: "ex",
+          disabled: !this.save.data.exStageUnlocked,
+        },
       ]);
+      this.refreshCharacterMenu();
+    }
+
+    refreshCharacterMenu() {
+      const selected = this.save.data.selectedCharacter;
+      const shionUnlocked = this.save.data.unlockedCharacters.includes("shion");
+      this.characterMenu.setItems([
+        { label: `寿立覇王${selected === "haou" ? "  SELECTED" : ""}`, action: "haou" },
+        {
+          label: shionUnlocked ? `結城紫苑${selected === "shion" ? "  SELECTED" : ""}` : "結城紫苑　LOCKED",
+          action: "shion",
+          disabled: !shionUnlocked,
+        },
+        { label: "BACK", action: "back" },
+      ]);
+    }
+
+    openCharacterSelect() {
+      this.titlePanel = "character";
+      this.save.saveProgress({ newCharacterNotificationSeen: true });
+      this.refreshTitleMenu();
+      this.titlePanel = "character";
+    }
+
+    activateCharacterItem() {
+      const item = this.characterMenu.selected();
+      if (!item || item.disabled) return;
+      this.audio.playSE("menu_decide");
+      if (item.action === "back") {
+        this.titlePanel = "main";
+        return;
+      }
+      if (this.save.setSelectedCharacter(item.action)) {
+        this.applySelectedCharacter();
+        this.refreshCharacterMenu();
+      }
     }
 
     activateStageSelectItem() {
       const item = this.stageSelectMenu.selected();
       if (!item || item.disabled) return;
       this.audio.playSE("menu_decide");
+      if (item.action === "ex") {
+        this.save.saveProgress({ exStageNotificationSeen: true });
+        this.refreshTitleMenu();
+        this.titlePanel = "ex";
+        return;
+      }
       if (STAGE_DEFINITIONS[item.action]) this.beginStageSelect(item.action);
     }
 
@@ -4718,6 +5171,9 @@
         this.audio.playSE("item_p_small", { cooldown: 0, maxVoices: 1 });
       } else if (action === "mute") {
         this.audio.toggleMute();
+      } else if (action === "dialogue") {
+        const dialogueMode = this.save.data.dialogueMode === "skipAll" ? "show" : "skipAll";
+        this.save.saveProgress({ dialogueMode });
       } else {
         return;
       }
@@ -4729,6 +5185,8 @@
       if (action === "mute") {
         this.audio.toggleMute();
         this.audio.playSE("menu_decide");
+      } else if (action === "dialogue") {
+        this.adjustOption(1);
       } else if (action === "back") {
         this.closeOptions();
       } else {
@@ -4922,7 +5380,7 @@
       this.state.shake = 0;
       this.state.message = "";
       this.state.messageTimer = 0;
-      this.input.touchActive = false;
+      this.releaseTouchMovement();
       this.input.mouseActive = false;
       this.input.fire = false;
       this.audio.resumeAll();
@@ -4938,7 +5396,7 @@
       }
       if (this.state.mode !== "title" && this.state.mode !== "paused" && this.state.mode !== "gameover") return false;
       const pos = this.canvasPoint(e);
-      if (this.state.mode === "title" && this.titlePanel === "main" && pos.y >= 626 && pos.y <= 664) {
+      if (this.state.mode === "title" && this.titlePanel === "main" && pos.y >= 644 && pos.y <= 682) {
         this.changeDifficulty(pos.x < W / 2 ? -1 : 1);
         this.audio.playSE("menu_move");
         return true;
@@ -4946,6 +5404,10 @@
       const hit = this.hitMenuItem(pos.x, pos.y);
       if (hit === null) return false;
       if (this.state.mode === "title") {
+        if (this.titlePanel === "ex") {
+          this.titlePanel = "stage";
+          return true;
+        }
         if (this.titlePanel === "options") {
           this.optionsMenu.index = hit;
           const action = this.optionsMenu.selected()?.action;
@@ -4954,6 +5416,9 @@
         } else if (this.titlePanel === "stage") {
           this.stageSelectMenu.index = hit;
           this.activateStageSelectItem();
+        } else if (this.titlePanel === "character") {
+          this.characterMenu.index = hit;
+          this.activateCharacterItem();
         } else {
           this.titleMenu.index = hit;
           this.activateTitleItem();
@@ -5005,7 +5470,13 @@
         return null;
       }
       const startY = this.state.mode === "title"
-        ? (this.titlePanel === "options" ? 365 : this.titlePanel === "stage" ? 380 : 332)
+        ? (this.titlePanel === "options"
+            ? 365
+            : this.titlePanel === "stage"
+              ? 360
+              : this.titlePanel === "character"
+                ? 390
+                : 300)
         : (this.pauseOptionsOpen ? 365 : 345);
       for (let i = 0; i < menu.items.length; i += 1) {
         const top = startY + i * 48;
@@ -5018,6 +5489,8 @@
       if (this.state.mode === "title") {
         if (this.titlePanel === "options") return this.optionsMenu;
         if (this.titlePanel === "stage") return this.stageSelectMenu;
+        if (this.titlePanel === "character") return this.characterMenu;
+        if (this.titlePanel === "ex") return null;
         return this.titleMenu;
       }
       if (this.state.mode === "paused") return this.pauseOptionsOpen ? this.optionsMenu : this.pauseMenu;
@@ -5088,15 +5561,20 @@
           ? this.optionsMenu
           : this.titlePanel === "stage"
             ? this.stageSelectMenu
-            : this.titleMenu;
+            : this.titlePanel === "character"
+              ? this.characterMenu
+              : this.titleMenu;
         this.handleGamepadMenu(buttons, justPressed, axisX, axisY, titleMenu);
         if (justPressed(0)) {
           if (this.titlePanel === "options") this.activateOptionItem();
           else if (this.titlePanel === "stage") this.activateStageSelectItem();
+          else if (this.titlePanel === "character") this.activateCharacterItem();
+          else if (this.titlePanel === "ex") this.titlePanel = "stage";
           else this.activateTitleItem();
         }
         if (justPressed(1)) {
           if (this.titlePanel === "options") this.closeOptions();
+          else if (this.titlePanel === "ex") this.titlePanel = "stage";
           else {
             this.audio.playSE("menu_cancel");
             this.titlePanel = "main";
@@ -5123,6 +5601,8 @@
         }
       } else if (this.state.mode === "clear") {
         if (justPressed(0) || justPressed(1)) this.leaveClearScreen();
+      } else if (this.state.mode === "ending") {
+        if (justPressed(1)) this.ending.skipCredits();
       } else if (this.state.mode === "stage") {
         if (justPressed(2)) this.activatePlayerSpell();
         if (justPressed(8) || justPressed(9)) this.openPauseMenu();
@@ -5183,6 +5663,12 @@
       document.body.classList.toggle("dialogue-active", this.dialogue.active);
       if (!this.dialogue.active && this.state.mode === "stage") this.updateStage(deltaTime);
       if (this.dialogue.active) return;
+      if (this.state.mode === "ending") {
+        this.ending.update();
+        this.particles.forEach((p) => p.update());
+        this.particles = this.particles.filter((p) => p.life > 0);
+        return;
+      }
       if (this.state.mode === "paused" || this.state.mode === "gameover" || this.state.mode === "title") return;
       if (this.state.mode === "clear" && this.clearAdvanceTimer > 0) {
         this.clearAdvanceTimer -= 1;
@@ -5908,7 +6394,7 @@
       }
 
       ctx.restore();
-      this.drawUi();
+      if (this.state.mode !== "ending") this.drawUi();
       if (this.state.mode === "title") this.drawTitle();
       if (this.state.mode === "paused") this.drawPauseMenu();
       if (this.state.mode === "gameover") this.drawGameOverMenu();
@@ -5919,6 +6405,7 @@
           this.currentStage.clearFooter
         );
       }
+      if (this.state.mode === "ending") this.ending.draw(ctx);
       this.drawBossSpellCutin();
       this.drawPlayerSpellCutin();
       this.drawPowerUpFlash();
@@ -5945,7 +6432,7 @@
       const dx = this.input.touchX - this.input.joystickOriginX;
       const dy = this.input.touchY - this.input.joystickOriginY;
       const length = Math.hypot(dx, dy) || 1;
-      const maxDistance = MOBILE_CONTROLS.joystickRadius - MOBILE_CONTROLS.knobRadius;
+      const maxDistance = MOBILE_CONTROLS.joystickMaxRadius - MOBILE_CONTROLS.knobRadius;
       const scale = Math.min(1, maxDistance / length);
       const knobX = this.input.joystickOriginX + dx * scale;
       const knobY = this.input.joystickOriginY + dy * scale;
@@ -5954,8 +6441,12 @@
       ctx.strokeStyle = "rgba(218, 255, 244, 0.55)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(this.input.joystickOriginX, this.input.joystickOriginY, MOBILE_CONTROLS.joystickRadius, 0, TAU);
+      ctx.arc(this.input.joystickOriginX, this.input.joystickOriginY, MOBILE_CONTROLS.joystickMaxRadius, 0, TAU);
       ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(218, 255, 244, 0.24)";
+      ctx.beginPath();
+      ctx.arc(this.input.joystickOriginX, this.input.joystickOriginY, MOBILE_CONTROLS.joystickDeadZone, 0, TAU);
       ctx.stroke();
       ctx.fillStyle = "rgba(123, 231, 255, 0.62)";
       ctx.beginPath();
@@ -6481,13 +6972,13 @@
       ctx.textAlign = "center";
       ctx.fillStyle = "#f8ffe9";
       ctx.font = "900 42px system-ui, sans-serif";
-      ctx.fillText("花粉滅殺", W / 2, 230);
+      ctx.fillText("花粉滅殺", W / 2, 178);
       ctx.fillStyle = "#91e9ff";
       ctx.font = "900 36px system-ui, sans-serif";
-      ctx.fillText("サバイバー", W / 2, 276);
+      ctx.fillText("サバイバー", W / 2, 220);
       ctx.fillStyle = "#fff1a6";
       ctx.font = "16px system-ui, sans-serif";
-      ctx.fillText("King of Slipper 外伝ミニゲーム", W / 2, 320);
+      ctx.fillText("King of Slipper 外伝ミニゲーム", W / 2, 260);
       if (this.titlePanel === "options") {
         this.drawOptions();
         return;
@@ -6495,22 +6986,51 @@
       if (this.titlePanel === "stage") {
         ctx.fillStyle = "#f8ffe9";
         ctx.font = "900 28px system-ui, sans-serif";
-        ctx.fillText("STAGE SELECT", W / 2, 360);
-        this.drawMenu(this.stageSelectMenu, 380);
+        ctx.fillText("STAGE SELECT", W / 2, 330);
+        this.drawMenu(this.stageSelectMenu, 360);
         ctx.fillStyle = "#fff0a8";
         ctx.font = "700 14px system-ui, sans-serif";
         const selectedStage = this.stageSelectMenu.selected()?.action;
         const selectedScore = selectedStage && STAGE_DEFINITIONS[selectedStage]
           ? this.save.getHighScore(this.difficulty.current, selectedStage)
           : 0;
-        ctx.fillText(`SELECTED HIGH SCORE  ${selectedScore}`, W / 2, 600);
+        ctx.fillText(`SELECTED HIGH SCORE  ${selectedScore}`, W / 2, 680);
         ctx.fillStyle = "rgba(239, 255, 237, 0.75)";
         ctx.font = "13px system-ui, sans-serif";
-        ctx.fillText("Stage5は将来のアップデートで実装予定", W / 2, 628);
-        ctx.fillText("Esc / B で戻る", W / 2, 652);
+        ctx.fillText("Esc / B で戻る", W / 2, 712);
         return;
       }
-      this.drawMenu(this.titleMenu, 332, (item) => {
+      if (this.titlePanel === "character") {
+        ctx.fillStyle = "#f8ffe9";
+        ctx.font = "900 28px system-ui, sans-serif";
+        ctx.fillText("SURVIVOR SELECT", W / 2, 350);
+        this.drawMenu(this.characterMenu, 390);
+        const selected = SURVIVORS[this.save.data.selectedCharacter] || SURVIVORS.haou;
+        ctx.fillStyle = "#fff0a8";
+        ctx.font = "800 17px system-ui, sans-serif";
+        ctx.fillText(`出撃サバイバー　${selected.name}`, W / 2, 570);
+        ctx.fillStyle = "rgba(239, 255, 237, 0.75)";
+        ctx.font = "13px system-ui, sans-serif";
+        ctx.fillText("結城紫苑の専用性能・立ち絵は今後実装", W / 2, 604);
+        ctx.fillText("Esc / B で戻る", W / 2, 632);
+        return;
+      }
+      if (this.titlePanel === "ex") {
+        ctx.fillStyle = "#d9a8ff";
+        ctx.font = "900 32px system-ui, sans-serif";
+        ctx.fillText("EX STAGE", W / 2, 382);
+        ctx.fillStyle = "#f8ffe9";
+        ctx.font = "800 22px system-ui, sans-serif";
+        ctx.fillText("イネノミカミ", W / 2, 432);
+        ctx.fillStyle = "#fff0a8";
+        ctx.font = "800 17px system-ui, sans-serif";
+        ctx.fillText("COMING SOON", W / 2, 484);
+        ctx.fillStyle = "rgba(239, 255, 237, 0.75)";
+        ctx.font = "13px system-ui, sans-serif";
+        ctx.fillText("決定 / Esc / B で戻る", W / 2, 540);
+        return;
+      }
+      this.drawMenu(this.titleMenu, 300, (item) => {
         if (item.action === "fullscreen") return this.fullscreen.label();
         return item.label;
       });
@@ -6528,16 +7048,16 @@
         ctx.fillText(`TOTAL ${this.save.getHighScore(this.difficulty.current, "total")}　S1 ${this.save.isStageCleared("stage1") ? "CLEAR" : "---"}　S2 ${this.save.isStageCleared("stage2") ? "CLEAR" : "---"}　S3 ${this.save.isStageCleared("stage3") ? "CLEAR" : "---"}　S4 ${this.save.isStageCleared("stage4") ? "CLEAR" : "---"}`, W / 2, 712);
       } else {
         ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
-        ctx.fillRect(86, 626, W - 172, 38);
+        ctx.fillRect(86, 644, W - 172, 38);
         ctx.strokeStyle = "rgba(255, 240, 168, 0.58)";
-        ctx.strokeRect(86, 626, W - 172, 38);
+        ctx.strokeRect(86, 644, W - 172, 38);
         ctx.fillStyle = "#fff0a8";
         ctx.font = "800 15px system-ui, sans-serif";
-        ctx.fillText(`DIFFICULTY  < ${this.difficulty.label} >`, W / 2, 651);
+        ctx.fillText(`DIFFICULTY  < ${this.difficulty.label} >`, W / 2, 669);
         ctx.fillStyle = "rgba(239, 255, 237, 0.82)";
         ctx.font = "13px system-ui, sans-serif";
-        ctx.fillText(`HIGH SCORE  ${this.save.getHighScore(this.difficulty.current, "stage1")}`, W / 2, 690);
-        ctx.fillText("上下で選択、START選択中の左右で難易度変更", W / 2, 716);
+        ctx.fillText(`HIGH SCORE  ${this.save.getHighScore(this.difficulty.current, "stage1")}`, W / 2, 714);
+        ctx.fillText("上下で選択、START選択中の左右で難易度変更", W / 2, 742);
       }
     }
 
@@ -6550,12 +7070,13 @@
         if (item.action === "bgm") return this.formatVolumeOption("BGM VOLUME", this.audio.getBGMVolume());
         if (item.action === "se") return this.formatVolumeOption("SE VOLUME", this.audio.getSEVolume());
         if (item.action === "mute") return `MASTER MUTE  [${this.audio.settings.masterMute ? "ON" : "OFF"}]`;
+        if (item.action === "dialogue") return `会話表示  [${this.save.data.dialogueMode === "skipAll" ? "すべてスキップ" : "すべて表示"}]`;
         return item.label;
       });
       ctx.fillStyle = "rgba(239, 255, 237, 0.75)";
       ctx.font = "13px system-ui, sans-serif";
-      ctx.fillText("左右・画面左/右タップで調整", W / 2, 590);
-      ctx.fillText("Esc / B で戻る", W / 2, 614);
+      ctx.fillText("左右・画面左/右タップで調整", W / 2, 630);
+      ctx.fillText("Esc / B で戻る", W / 2, 654);
     }
 
     formatVolumeOption(label, value) {
@@ -6690,7 +7211,13 @@
     const stageId = requestedStage ? (requestedStage.startsWith("stage") ? requestedStage : `stage${requestedStage}`) : null;
     const phase = Number.parseInt(debugParams.get("phase") || "0", 10) || 0;
     const finalTarget = debugParams.get("final");
+    const endingTarget = debugParams.get("ending");
+    const unlockTarget = debugParams.get("unlock");
     if (stageId) game.beginDebugStage(stageId, phase, finalTarget);
+    if (endingTarget) game.debugEnding(endingTarget);
+    if (unlockTarget === "on") game.debugEnding("unlocked");
+    if (unlockTarget === "off") game.debugEnding("locked");
+    if (unlockTarget === "reset") game.debugEnding("reset");
   }
   updateManager.init();
   requestAnimationFrame(game.loop);
