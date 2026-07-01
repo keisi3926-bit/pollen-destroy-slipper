@@ -123,6 +123,8 @@
   const HINOKI_ENEMY_ASSET = "assets/enemies/hinoki_enemies.png";
   const STAGE3_ENEMY_ASSET = "assets/enemies/stage3_enemies.png";
   const SLIPPER_NOVA_CUTIN_ASSET = "assets/cutin/haou_slipper_nova.png";
+  const SHION_PLAYER_ASSET = "assets/characters/shion/player.png";
+  const SHION_CUTIN_ASSET = "assets/characters/shion/cut-in.png";
   const SUGINOMIKOTO_CUTIN_ASSET = "assets/cutin/suginomikoto_divine_attack.png";
   const HINOKI_SHOGUN_CUTIN_ASSET = "assets/cutin/hinoki_shogun_divine_attack.png";
   const LORD_RAGWEED_CUTIN_ASSET = "assets/cutin/lord_ragweed_cutin.png";
@@ -136,8 +138,31 @@
     knobRadius: 18,
   };
   const SURVIVORS = {
-    haou: { id: "haou", name: "寿立覇王", portrait: "player.png" },
-    shion: { id: "shion", name: "結城紫苑", portrait: "player.png" },
+    haou: {
+      id: "haou", name: "寿立覇王", portrait: "player.png", playerImage: PLAYER_ASSET,
+      cutInImage: SLIPPER_NOVA_CUTIN_ASSET, movementSpeed: 5, lowSpeedMultiplier: 0.5,
+      normalShotType: "forward", optionType: "slipper", specialType: "slipperNova",
+      specialLabel: "履技", specialName: "極履技「スリッパ・ノヴァ」", dialogueRoute: "haou",
+    },
+    shion: {
+      id: "shion", name: "結城紫苑", portrait: "assets/characters/shion/player.png", playerImage: SHION_PLAYER_ASSET,
+      cutInImage: SHION_CUTIN_ASSET, movementSpeed: 5, lowSpeedMultiplier: 0.5,
+      normalShotType: "homing", optionType: "pc", specialType: "debugSpiderWeb",
+      specialLabel: "IDE技", specialName: "IDE技「デバッグ・スパイダーウェブ」", dialogueRoute: "shion",
+      homing: {
+        damage: 0.82, speed: 9.1, turnRate: 0.075, targetRange: 720,
+        retargetEnabled: true, retargetFrames: 10, shotInterval: 7,
+      },
+      optionPositions: {
+        normal: [[-30, 24], [30, 24], [-54, 38], [54, 38]],
+        slow: [[-22, -8], [22, -8], [-44, 4], [44, 4]],
+      },
+      ide: {
+        initialDamage: 42, damageTick: 2.2, duration: 180, tickInterval: 15,
+        invincibleDuration: 180, nodeCount: 10, mobileNodeCount: 7,
+        cableOpacity: 0.42, cableAnimationSpeed: 0.055,
+      },
+    },
   };
   const ENDING_CONFIG = {
     bgm: "assets/audio/ending-theme.mp3",
@@ -161,7 +186,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.40.0";
+  const APP_VERSION = "0.41.0";
   const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4", "stage5"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -735,6 +760,33 @@
   // 会話データは speaker / text / portrait / side だけで管理する。
   // portrait に画像名を指定すると assets/characters/ から読み込み、無ければ自動でプレースホルダー表示になる。
   const DIALOGUE_SCENES = {
+    shion_opening: [
+      { speaker: "player", text: "本編クリア特典って、普通は楽になるものだと思うんですけど", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "どうして全ステージ再対応なんですか", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "……はい。知ってました", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "結城紫苑。休日対応、開始します", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    scene_intro_shion: [],
+    scene_boss_shion: [
+      { speaker: "boss", text: "人の子よ。春の訪れを拒むというのか", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "春は拒んでません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "業務と日常生活に支障が出る量を拒否しています", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "我が花粉は、命を繋ぐための恵み", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "恵みは視界を奪ったり、呼吸を止めたりしません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "それもまた、自然の理である", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "自然現象を全部『仕様です』で通すの、運用側には通じませんよ", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "ならば、その身で春を受け止めよ！", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "受け止めません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "原因ごと止めます", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    scene_clear_shion: [
+      { speaker: "boss", text: "我が春を……修正したというのか……", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "一時対応です", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "どうせ来年、同じ現象が再発するんでしょう", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "春は、何度でも巡る", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "再発前提で運用しないでください", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "……次", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
     scene_intro: [
       { speaker: "player", text: "春。参道には、今年も黄色い霧が降りた。", portrait: "player.png", side: "left" },
       { speaker: "player", text: "鼻を守る者は、もういない。", portrait: "player.png", side: "left" },
@@ -802,6 +854,17 @@
       { speaker: "player", text: "来い。", portrait: "player.png", side: "left" },
       { speaker: "player", text: "まとめて叩き落とす。", portrait: "player.png", side: "left" },
     ],
+    stage2_boss_intro_shion: [
+      { speaker: "boss", text: "よくぞ我が陣へ踏み込んだ！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "ここ、参道ですよね", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "我が立つ場所こそ戦場！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "勝手に本番環境を戦場へ変更しないでもらえます？", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "小賢しい！　花粉軍の進撃は止まらぬ！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "止まらない処理は、止めるまでが仕事です", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "ならば受けよ！　檜軍総攻撃！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "はいはい", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "強制終了します", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
     stage2_boss_defeat: [
       { speaker: "boss", text: "……見事だ。", portrait: "hinoki_shogun.png", side: "right" },
       { speaker: "boss", text: "檜風、ここに敗れる。", portrait: "hinoki_shogun.png", side: "right" },
@@ -816,6 +879,14 @@
       { speaker: "boss", text: "否。", portrait: "hinoki_shogun.png", side: "right" },
       { speaker: "boss", text: "春は、まだ終わらぬ。", portrait: "hinoki_shogun.png", side: "right" },
       { speaker: "player", text: "終わってくれ。", portrait: "player.png", side: "left" },
+    ],
+    stage2_boss_defeat_shion: [
+      { speaker: "boss", text: "見事……我が布陣を破るとは……！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "正面から全部撃ってくるので、分析は楽でした", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "武人への賛辞として受け取っておこう！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "好きにしてください", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "報告書は一行で済みます", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "原因、花粉。対応、撃破", portrait: "assets/characters/shion/player.png", side: "left" },
     ],
     stage2_clear: [
       { speaker: "system", text: "STAGE2 CLEAR", portrait: "player.png", side: "left" },
@@ -842,6 +913,18 @@
       { speaker: "player", text: "来い。", portrait: "player.png", side: "left" },
       { speaker: "player", text: "秋ごと叩き落としてやる。", portrait: "player.png", side: "left" },
     ],
+    stage3_boss_intro_shion: [
+      { speaker: "boss", text: "ようこそ、我が秋の王国へ！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "管理されてない土地に勝手に増殖してるだけでは？", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "増殖ではない！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "boss", text: "侵略であり、繁栄であり、戴冠である！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "運用側から見ると、勝手に増えるものは全部障害です", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "我を雑草のごとく扱うか！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "雑草とは言ってません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "削除しても戻ってくる常駐プロセスだと思ってます", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "ならば貴様も、我が領土の一部となれ！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "利用規約に同意した覚えはありません", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
     stage3_boss_defeat: [
       { speaker: "boss", text: "……見事。", portrait: "lord_ragweed.png", side: "right" },
       { speaker: "boss", text: "我が毒花粉を、ここまで払うとは。", portrait: "lord_ragweed.png", side: "right" },
@@ -858,6 +941,14 @@
       { speaker: "boss", text: "進むがいい、スリッパの王よ。", portrait: "lord_ragweed.png", side: "right" },
       { speaker: "boss", text: "季節は、まだ終わらぬ。", portrait: "lord_ragweed.png", side: "right" },
       { speaker: "player", text: "終われ。", portrait: "player.png", side: "left" },
+    ],
+    stage3_boss_defeat_shion: [
+      { speaker: "boss", text: "王は滅びぬ……！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "boss", text: "根が残る限り、何度でも蘇る！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "再発チケットとして記録しておきます", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "我が復活を待ちわびるがよい！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "待ちません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "できれば永久にクローズしてください", portrait: "assets/characters/shion/player.png", side: "left" },
     ],
     stage3_clear: [
       { speaker: "system", text: "STAGE3 CLEAR", portrait: "player.png", side: "left" },
@@ -878,6 +969,18 @@
       { speaker: "player", text: "お断りだ！", portrait: "player.png", side: "left" },
       { speaker: "player", text: "玄関ってのはな、帰ってくるためにあるんだよ！", portrait: "player.png", side: "left" },
     ],
+    stage4_boss_intro_shion: [
+      { speaker: "boss", text: "ようこそ。白き静寂の聖域へ", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "寒いですね", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "凍れば、苦しむこともありません", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "サーバーを止めれば障害も起きない、くらい乱暴な解決策ですね", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "動かなければ、傷つかない", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "boss", text: "目覚めなければ、失うこともない", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "停止しているだけの状態を、安定稼働とは呼びません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "……あなたも、白き静寂へ沈みなさい", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "遠慮します", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "俺は止まってるシステムを見ると、起動したくなるので", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
     stage4_boss_defeat: [
       { speaker: "boss", text: "なぜ……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
       { speaker: "boss", text: "なぜ、まだ呼吸を続けているのです……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
@@ -887,7 +990,107 @@
       { speaker: "player", text: "だったら、次はそいつを滅殺するだけだ", portrait: "player.png", side: "left" },
       { speaker: "boss", text: "春は……必ず……訪れる……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
     ],
+    stage4_boss_defeat_shion: [
+      { speaker: "boss", text: "なぜ……まだ、動き続けるのです……", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "止まる理由がありませんから", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "boss", text: "春は……必ず訪れます", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "来るのは構いません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "次は負荷分散して来てください", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_ending_intro_shion: [
+      { speaker: "player", text: "……今度こそ終わりましたよね？", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_ending_outro_shion: [
+      { speaker: "player", text: "未処理、一件", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "削除完了", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "春も夏も、秋も冬も。来ること自体は構いません", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "ただし次からは、事前通知と影響範囲と回避策を提出してください", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "提出できないなら――来年も俺が対応します", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
   };
+
+  Object.assign(DIALOGUE_SCENES, {
+    final_rush_sugi_shion: [
+      { speaker: "boss", text: "再び、春を阻むか", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "再現確認済みです。二回目は早いですよ", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_rush_hinoki_shion: [
+      { speaker: "boss", text: "再戦の時だ！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "同じ障害なら、対応時間は短くなります", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_rush_ragweed_shion: [
+      { speaker: "boss", text: "王の帰還である！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "閉じたチケットを勝手に再オープンしないでください", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_rush_shirakaba_shion: [
+      { speaker: "boss", text: "今度こそ、永遠の静寂を", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "その対処、前回却下しました", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_taikun_intro_shion: [
+      { speaker: "player", text: "春、夏、秋、冬。再発分も含めて、四件クローズしました", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "大花粉大君", text: "クローズ？　汝は何も終わらせておらぬ", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "大花粉大君", text: "汝が巡った四季は、すべて余の庭", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "player", text: "では、残件は庭の管理者だけですね", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "大花粉大君", text: "余は、すべての花粉を統べる大君である", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "player", text: "自己申告の権限は信用しない主義です", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "大花粉大君", text: "四季を越えた力、余の前に示してみよ！", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "player", text: "了解しました。管理者権限、剥奪します", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_taikun_card1_shion: [
+      { speaker: "大花粉大君", text: "春天、開門", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "スギノミコト", text: "再び我が春を受けよ！", portrait: "suginomikoto.png", side: "right" },
+      { speaker: "player", text: "同じログ、さっき見ました", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_taikun_card2_shion: [
+      { speaker: "大花粉大君", text: "夏天、布陣", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "ヒノキ将軍", text: "全軍、進撃！", portrait: "hinoki_shogun.png", side: "right" },
+      { speaker: "player", text: "再利用できる処理は再利用する、と", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_taikun_card3_shion: [
+      { speaker: "大花粉大君", text: "秋天、侵蝕", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "ロード・ラグウィード", text: "王、再び戴冠せり！", portrait: "lord_ragweed.png", side: "right" },
+      { speaker: "player", text: "バージョンだけ変えて再提出するの、やめません？", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_taikun_card4_shion: [
+      { speaker: "大花粉大君", text: "冬天、封界", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "シラカバ・プリースト", text: "すべてを白き静寂へ", portrait: "assets/stage4/shirakaba-priest.png", side: "right" },
+      { speaker: "player", text: "また全停止ですか。改善が見られませんね", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_taikun_card5_shion: [
+      { speaker: "大花粉大君", text: "一柱ずつでは、汝を止められぬか", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "大花粉大君", text: "ならば四天すべてを同時に降ろす！", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "player", text: "五体表示されているのに、体力バーは一本。UIだけは正直ですね", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "大花粉大君", text: "王を討ちたくば、世界すべてを相手取れ！", portrait: STAGE5_ASSETS.sovereign, side: "right" },
+      { speaker: "player", text: "本体だけ落とせば全部止まる。むしろ親切な構成です", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_daijin_intro_shion: [
+      { speaker: "player", text: "依存していた四つの処理を、本体へ統合しましたか", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "大花粉大神", text: "王は世界を統べる。神は、世界を創る", portrait: STAGE5_ASSETS.deity, side: "right" },
+      { speaker: "player", text: "本番環境で天地創造しないでください", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "大花粉大神", text: "新たな天地に、汝の居場所はない", portrait: STAGE5_ASSETS.deity, side: "right" },
+      { speaker: "player", text: "変更を却下して、ロールバックします", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_abyss_intro_shion: [
+      { speaker: "大花粉大神", text: "世界の底に眠るものを……汝は、受け止められるか……", portrait: STAGE5_ASSETS.deity, side: "right" },
+      { speaker: "player", text: "その言い方。まだ残件がありますね？", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "system", text: "未登録反応を検出。名称照合――失敗。分類――不能", portrait: null, side: "right" },
+      { speaker: "system", text: "名も無き深淵　ABYSS", portrait: STAGE5_ASSETS.abyss, side: "right" },
+      { speaker: "player", text: "分類不能。応答なし。……体力だけ異常", portrait: "assets/characters/shion/player.png", side: "left" },
+      { speaker: "player", text: "最悪の案件ですね", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_abyss_75_shion: [
+      { speaker: "player", text: "攻撃は単純。体力だけ多いタイプですか", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_abyss_50_shion: [
+      { speaker: "player", text: "……まだ半分。曲が変わるたびに、体力増えてませんよね？", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_abyss_25_shion: [
+      { speaker: "player", text: "プレイヤーの集中力を削る設計。性格が悪いですね", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+    final_abyss_10_shion: [
+      { speaker: "player", text: "あと少し。ここで事故るのが、一番ダサい", portrait: "assets/characters/shion/player.png", side: "left" },
+    ],
+  });
 
   class GameState {
     constructor() {
@@ -1071,6 +1274,9 @@
         endingViewed: false,
         newCharacterNotificationSeen: false,
         exStageNotificationSeen: false,
+        shionOpeningSeen: false,
+        highestReachedStage: "stage1",
+        currentStoryStage: "stage1",
       };
     }
 
@@ -1168,6 +1374,7 @@
         endingViewed: false,
         newCharacterNotificationSeen: false,
         exStageNotificationSeen: false,
+        shionOpeningSeen: false,
       });
     }
 
@@ -1258,7 +1465,15 @@
         this.imageLoaded = true;
       };
       this.image.src = `${PLAYER_ASSET}?v=${APP_VERSION}`;
+      this.characterId = "haou";
       this.positionHistory = [];
+    }
+
+    setCharacter(config) {
+      if (!config) return;
+      this.characterId = config.id;
+      this.imageLoaded = false;
+      this.image.src = `${config.playerImage || PLAYER_ASSET}?v=${APP_VERSION}`;
     }
 
     reset() {
@@ -1275,7 +1490,9 @@
 
     update(input, bullets, game) {
       const slow = input.slow || input.gpSlow;
-      const speed = slow ? 2.5 : 5;
+      const config = game?.survivorConfig || SURVIVORS.haou;
+      const baseSpeed = config.movementSpeed || 5;
+      const speed = slow ? baseSpeed * (config.lowSpeedMultiplier ?? 0.5) : baseSpeed;
       let mx = 0;
       let my = 0;
 
@@ -1310,13 +1527,29 @@
       this.invincible = Math.max(0, this.invincible - 1);
 
       if ((input.fire || input.gpFire || input.touchActive) && this.cooldown <= 0) {
-        this.shoot(bullets, game?.power.stage || 0);
+        this.shoot(bullets, game?.power.stage || 0, config);
         if (game) game.shootFollowers();
-        this.cooldown = slow ? 7 : 6;
+        this.cooldown = config.normalShotType === "homing"
+          ? (config.homing?.shotInterval || 7)
+          : slow ? 7 : 6;
       }
     }
 
-    shoot(bullets, powerStage) {
+    shoot(bullets, powerStage, config = SURVIVORS.haou) {
+      if (config.normalShotType === "homing") {
+        const homing = config.homing;
+        const count = powerStage >= 4 ? 4 : powerStage >= 3 ? 3 : powerStage >= 1 ? 2 : 1;
+        const spread = powerStage >= 3 ? 12 : 9;
+        for (let i = 0; i < count; i += 1) {
+          const offset = (i - (count - 1) / 2) * spread;
+          bullets.push(new HomingBullet(this.x + offset, this.y - 22, {
+            ...homing,
+            damage: homing.damage * (powerStage >= 4 ? 1.28 : powerStage >= 2 ? 1.12 : 1),
+            radius: powerStage >= 4 ? 5 : powerStage >= 2 ? 4.5 : 4,
+          }));
+        }
+        return;
+      }
       const colors = ["#bdf6ff", "#a9efff", "#7ee5ff", "#74f1d1", "#fff0a8"];
       const color = colors[powerStage];
       if (powerStage === 0) {
@@ -1412,10 +1645,17 @@
 
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(-25, -39, 50, 58, 14);
+      ctx.roundRect(-25, -42, 50, 62, 12);
       ctx.clip();
-      // 元画像は正方形で余白があるため、キャラ全身部分をクロップして自機サイズに収める。
-      ctx.drawImage(this.image, 245, 12, 545, 960, -25, -39, 50, 58);
+      if (this.characterId === "shion") {
+        const ratio = this.image.width / this.image.height;
+        const drawH = 64;
+        const drawW = drawH * ratio;
+        ctx.drawImage(this.image, -drawW / 2, -43, drawW, drawH);
+      } else {
+        // 元画像は正方形で余白があるため、キャラ全身部分をクロップして自機サイズに収める。
+        ctx.drawImage(this.image, 245, 12, 545, 960, -25, -39, 50, 58);
+      }
       ctx.restore();
 
       ctx.fillStyle = "#ffffff";
@@ -1527,7 +1767,16 @@
       this.y = H - 70;
     }
 
-    update(player, slow) {
+    update(player, slow, config = SURVIVORS.haou) {
+      if (config.optionType === "pc") {
+        const formation = config.optionPositions?.[slow ? "slow" : "normal"] || [];
+        const target = formation[this.index] || { 0: 0, 1: 24 };
+        const offsetX = Array.isArray(target) ? target[0] : target.x;
+        const offsetY = Array.isArray(target) ? target[1] : target.y;
+        this.x += (player.x + offsetX - this.x) * (slow ? 0.3 : 0.2);
+        this.y += (player.y + offsetY - this.y) * (slow ? 0.3 : 0.2);
+        return;
+      }
       if (slow) {
         const formations = [
           { x: -34, y: 6 },
@@ -1546,9 +1795,32 @@
       this.y += (target.y - this.y) * 0.34;
     }
 
-    draw(ctx, t) {
+    draw(ctx, t, config = SURVIVORS.haou) {
       ctx.save();
       ctx.translate(this.x, this.y);
+      if (config.optionType === "pc") {
+        const pulse = 0.72 + Math.sin(t * 0.12 + this.index) * 0.16;
+        ctx.shadowColor = "#6de7ff";
+        ctx.shadowBlur = 8 + pulse * 5;
+        ctx.fillStyle = "rgba(9, 31, 48, 0.94)";
+        ctx.strokeStyle = "#b9f7ff";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(-9, -7, 18, 13, 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = `rgba(85, 226, 255, ${pulse})`;
+        ctx.fillRect(-6, -4, 12, 7);
+        ctx.strokeStyle = "#7ee9ff";
+        ctx.beginPath();
+        ctx.moveTo(-5, 8);
+        ctx.lineTo(5, 8);
+        ctx.moveTo(0, 6);
+        ctx.lineTo(0, 8);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
       ctx.rotate(-0.1 + Math.sin(t * 0.08 + this.index) * 0.08);
       ctx.fillStyle = "#72d8ef";
       ctx.strokeStyle = "#eaffff";
@@ -1621,6 +1893,84 @@
       ctx.arc(this.x, this.y, this.r * 2.1, 0, TAU);
       ctx.fill();
       ctx.restore();
+    }
+  }
+
+  class HomingBullet extends Bullet {
+    constructor(x, y, config = {}) {
+      const speed = config.speed || 9;
+      super(x, y, 0, -speed, config.radius || 4, "player", "#72e6ff", {
+        damage: config.damage || 0.8,
+      });
+      this.homing = true;
+      this.speed = speed;
+      this.turnRate = config.turnRate || 0.07;
+      this.targetRange = config.targetRange || 720;
+      this.retargetEnabled = config.retargetEnabled !== false;
+      this.retargetFrames = config.retargetFrames || 10;
+      this.target = null;
+      this.targetRefresh = 0;
+      this.trail = [];
+    }
+
+    validTarget(target, game) {
+      if (!target || target.destroyed || target.defeated || target.hp <= 0) return false;
+      if (target === game.boss) return Boolean(target.entered && !target.defeated);
+      return game.enemies.includes(target) && target.x > -40 && target.x < W + 40 && target.y > -60 && target.y < H;
+    }
+
+    acquireTarget(game) {
+      const candidates = game.enemies.filter((enemy) => this.validTarget(enemy, game));
+      if (this.validTarget(game.boss, game)) candidates.push(game.boss);
+      let best = null;
+      let bestScore = Infinity;
+      for (const candidate of candidates) {
+        const playerDistance = Math.hypot(candidate.x - game.player.x, candidate.y - game.player.y);
+        if (playerDistance > this.targetRange) continue;
+        const centerBias = Math.abs(candidate.x - W / 2) * 0.18;
+        const bossBias = candidate === game.boss ? 18 : 0;
+        const score = playerDistance + centerBias + bossBias;
+        if (score < bestScore) {
+          best = candidate;
+          bestScore = score;
+        }
+      }
+      return best;
+    }
+
+    update(game) {
+      this.age += 1;
+      this.targetRefresh -= 1;
+      if (!this.validTarget(this.target, game) || (this.retargetEnabled && this.targetRefresh <= 0)) {
+        this.target = this.acquireTarget(game);
+        this.targetRefresh = this.retargetFrames;
+      }
+      if (this.target) {
+        const current = Math.atan2(this.vy, this.vx);
+        const desired = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+        const delta = Math.atan2(Math.sin(desired - current), Math.cos(desired - current));
+        const angle = current + clamp(delta, -this.turnRate, this.turnRate);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+      }
+      this.trail.unshift({ x: this.x, y: this.y });
+      if (this.trail.length > 4) this.trail.length = 4;
+      this.x += this.vx;
+      this.y += this.vy;
+    }
+
+    draw(ctx) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(102, 226, 255, 0.45)";
+      ctx.lineWidth = 2;
+      if (this.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(this.trail[0].x, this.trail[0].y);
+        this.trail.forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
+      }
+      ctx.restore();
+      super.draw(ctx);
     }
   }
 
@@ -2518,6 +2868,9 @@
         game.state.showMessage(this.currentCard.name, 135);
         game.startBossSpellCutin(this.currentCard.name);
       }
+      if (game.currentStageId === "stage5" && game.finalStageDirector?.phase === "sovereign" && this.cardIndex > 0) {
+        game.startDialogue(`final_taikun_card${this.cardIndex + 1}`);
+      }
     }
 
     nextCard(game, reason = this.currentCard?.survival ? "survival-timeout" : "hp-break") {
@@ -2882,6 +3235,7 @@
       this.transformation = 0;
       this.backgroundTint = 0;
       this.abyssAttackName = "";
+      this.abyssDialogueFlags = new Set();
     }
 
     begin() {
@@ -3002,6 +3356,8 @@
       this.createBoss(this.rushDefinition(entry));
       this.game.state.showMessage(`四天王再戦 ${index + 1}/4`, 120);
       this.game.audio.playBoss(index < 2 ? "stage5" : "stage5Back");
+      const scenes = ["final_rush_sugi", "final_rush_hinoki", "final_rush_ragweed", "final_rush_shirakaba"];
+      this.game.startDialogue(scenes[index]);
     }
 
     startSovereign() {
@@ -3018,6 +3374,7 @@
       });
       this.game.audio.playBoss("taikun");
       this.game.state.showMessage("大花粉大君　顕現", 160);
+      this.game.startDialogue("final_taikun_intro", () => this.game.startDialogue("final_taikun_card1"));
     }
 
     startTransformation() {
@@ -3028,6 +3385,7 @@
       this.backgroundTint = 1;
       this.game.state.showMessage("大花粉大神へ変生", 150);
       this.game.state.shake = 12;
+      this.game.startDialogue("final_daijin_intro");
     }
 
     startDeity() {
@@ -3056,6 +3414,7 @@
     startAbyss() {
       this.phase = "abyss";
       this.specialAge = 0;
+      this.abyssDialogueFlags = new Set();
       this.backgroundTint = 0.48;
       this.createBoss({
         name: FINAL_STAGE_CONFIG.abyss.name,
@@ -3076,6 +3435,7 @@
       });
       this.game.audio.playBoss("abyss");
       this.game.state.showMessage("BONUS BATTLE - 名も無き深淵", 180);
+      this.game.startDialogue("final_abyss_intro");
     }
 
     handleBossDefeat() {
@@ -3279,6 +3639,14 @@
 
     updateAbyssCycle(boss, card) {
       const config = FINAL_STAGE_CONFIG.abyss;
+      const ratio = card.hp / Math.max(1, card.maxHp);
+      for (const threshold of [75, 50, 25, 10]) {
+        if (ratio <= threshold / 100 && !this.abyssDialogueFlags.has(threshold)) {
+          this.abyssDialogueFlags.add(threshold);
+          this.game.startDialogue(`final_abyss_${threshold}`);
+          break;
+        }
+      }
       const bgmName = card.hp <= card.maxHp * 0.5 ? "abyssBack" : "abyss";
       if (this.game.audio.currentBGMName !== bgmName) this.game.audio.playBoss(bgmName);
       const localAge = card.age % config.cycleFrames;
@@ -4304,6 +4672,15 @@
         this.slipperNovaCutinLoaded = false;
       };
       this.slipperNovaCutin.src = `${SLIPPER_NOVA_CUTIN_ASSET}?v=${APP_VERSION}`;
+      this.shionCutin = new Image();
+      this.shionCutinLoaded = false;
+      this.shionCutin.onload = () => {
+        this.shionCutinLoaded = true;
+      };
+      this.shionCutin.onerror = () => {
+        this.shionCutinLoaded = false;
+      };
+      this.shionCutin.src = `${SHION_CUTIN_ASSET}?v=${APP_VERSION}`;
       this.suginomikotoCutin = new Image();
       this.suginomikotoCutinLoaded = false;
       this.suginomikotoCutin.onload = () => {
@@ -4365,6 +4742,7 @@
       this.bossSpellCutinName = "";
       this.playerSpellCooldown = 0;
       this.playerSpellActive = false;
+      this.ideEffect = null;
       this.playerSpellFirePlayed = false;
       this.playerCutinImpactPlayed = false;
       this.bossCutinBellPlayed = false;
@@ -4433,6 +4811,14 @@
       return STAGE_DEFINITIONS[this.currentStageId] || STAGE_DEFINITIONS.stage1;
     }
 
+    get survivorConfig() {
+      return SURVIVORS[this.save.data.selectedCharacter] || SURVIVORS.haou;
+    }
+
+    get specialLabel() {
+      return this.survivorConfig.specialLabel || "履技";
+    }
+
     preloadBossImage(src) {
       if (!src || this.bossImageCache.has(src)) return;
       const image = new Image();
@@ -4451,10 +4837,12 @@
     }
 
     applySelectedCharacter() {
-      const selected = SURVIVORS[this.save.data.selectedCharacter] || SURVIVORS.haou;
+      const selected = this.survivorConfig;
       this.save.data.selectedCharacter = selected.id;
       DIALOGUE_CONTEXT.playerName = selected.name;
-      if (this.player) this.player.characterId = selected.id;
+      if (this.player) this.player.setCharacter(selected);
+      spellButton.textContent = selected.specialLabel;
+      spellButton.setAttribute("aria-label", selected.specialName);
     }
 
     releaseTouchMovement(pointerId = null) {
@@ -4547,6 +4935,7 @@
 
     start(fromCheckpoint = false, keepScore = false, stageId = this.currentStageId, arcadeCarry = null) {
       this.configureStage(stageId);
+      this.applySelectedCharacter();
       const startTime = fromCheckpoint ? this.checkpoints.currentPoint.time : 0;
       const preservedSpellCount = this.playerSpellCount;
       const preservedPower = this.power.value;
@@ -4591,6 +4980,7 @@
       this.bossSpellCutinName = "";
       this.playerSpellCooldown = 0;
       this.playerSpellActive = false;
+      this.ideEffect = null;
       this.playerSpellFirePlayed = false;
       this.playerCutinImpactPlayed = false;
       this.bossCutinBellPlayed = false;
@@ -4641,6 +5031,14 @@
         120
       );
       this.audio.playStage(this.currentStage.bgm);
+      if (this.currentMode === "arcade") {
+        this.save.saveProgress({
+          currentStoryStage: this.currentStageId,
+          highestReachedStage: STAGE_ORDER.indexOf(this.currentStageId) > STAGE_ORDER.indexOf(this.save.data.highestReachedStage)
+            ? this.currentStageId
+            : this.save.data.highestReachedStage,
+        });
+      }
       if (this.currentStageId === "stage5") this.finalStageDirector.begin();
       if (!fromCheckpoint) this.startDialogue(this.currentStage.introScene);
     }
@@ -4675,6 +5073,7 @@
       this.boss = null;
       this.playerSpellTimer = 0;
       this.playerSpellActive = false;
+      this.ideEffect = null;
       this.playerSpellCutin = 0;
       this.bossSpellCutin = 0;
       this.bossSpellCutinName = "";
@@ -4756,11 +5155,17 @@
       this.slowPointerId = null;
       this.spellPointerHeld = false;
       this.spellPointerId = null;
-      if (sceneName && this.save.data.dialogueMode === "skipAll") {
+      let resolvedScene = sceneName;
+      if (sceneName && this.survivorConfig.dialogueRoute === "shion" && sceneName !== "shion_opening" && !sceneName.endsWith("_shion")) {
+        const shionScene = `${sceneName}_shion`;
+        if (Object.prototype.hasOwnProperty.call(DIALOGUE_SCENES, shionScene)) resolvedScene = shionScene;
+        else if (DIALOGUE_SCENES[sceneName]?.some((line) => line.speaker === "player")) resolvedScene = null;
+      }
+      if (resolvedScene && this.save.data.dialogueMode === "skipAll") {
         if (onComplete) onComplete();
         return;
       }
-      this.dialogue.start(sceneName, onComplete);
+      this.dialogue.start(resolvedScene, onComplete);
     }
 
     bindInput() {
@@ -5122,6 +5527,10 @@
       if (this.save.setSelectedCharacter(item.action)) {
         this.applySelectedCharacter();
         this.refreshCharacterMenu();
+        if (item.action === "shion" && !this.save.data.shionOpeningSeen) {
+          this.save.saveProgress({ shionOpeningSeen: true });
+          this.startDialogue("shion_opening");
+        }
       }
     }
 
@@ -5715,14 +6124,14 @@
       this.player.update(this.input, this.playerBullets, this);
       this.syncFollowers();
       const slow = this.input.slow || this.input.gpSlow;
-      this.followers.forEach((follower) => follower.update(this.player, slow));
+      this.followers.forEach((follower) => follower.update(this.player, slow, this.survivorConfig));
       this.updatePlayerSpell();
       this.spawnStageEnemies();
 
       this.enemies.forEach((e) => e.update(this));
       this.powerItems.forEach((item) => item.update(this.player));
       this.pointItems.forEach((item) => item.update(this.player));
-      this.playerBullets.forEach((b) => b.update());
+      this.playerBullets.forEach((b) => b.update(this));
       this.enemyBullets.forEach((b) => b.update());
       this.updateLasers();
       this.updateIceWalls();
@@ -5756,20 +6165,35 @@
       if (this.state.mode !== "stage" || this.dialogue.active) return;
       if (this.playerSpellCount <= 0 || this.playerSpellActive || this.playerSpellCooldown > 0) return;
       this.playerSpellCount -= 1;
-      this.playerSpellTimer = 165;
+      const config = this.survivorConfig;
+      const ide = config.ide;
+      this.playerSpellTimer = ide?.duration || 165;
       this.playerSpellCutin = PLAYER_CUTIN_FRAMES;
       this.playerSpellCooldown = 220;
       this.playerSpellActive = true;
       this.playerSpellFirePlayed = false;
       this.playerCutinImpactPlayed = false;
-      this.player.invincible = Math.max(this.player.invincible, 180);
+      this.player.invincible = Math.max(this.player.invincible, ide?.invincibleDuration || 180);
       this.cancelEnemyBullets(true);
       this.lasers = [];
       this.iceWalls = [];
       this.state.shake = 16;
-      this.state.showMessage("履技発動：スリッパ・ノヴァ", 100);
+      this.state.showMessage(`${config.specialLabel}発動：${config.specialName}`, 100);
       this.audio.playSE("cutin_haou_start", { maxVoices: 1 });
       this.audio.playSE("slipper_nova_charge", { maxVoices: 1 });
+      if (config.specialType === "debugSpiderWeb") {
+        const mobile = typeof matchMedia === "function" && matchMedia("(max-width: 700px)").matches;
+        const nodeCount = mobile ? ide.mobileNodeCount : ide.nodeCount;
+        this.ideEffect = {
+          age: 0,
+          nodes: Array.from({ length: nodeCount }, (_, index) => ({
+            x: 36 + ((index * 137) % (W - 72)),
+            y: 72 + ((index * 211) % (H - 150)),
+            phase: index * 0.73,
+          })),
+        };
+        this.applyIdeDamage(ide.initialDamage);
+      }
       for (let i = 0; i < 40; i += 1) this.particles.push(new Particle(this.player.x, this.player.y - 40, "#bdf6ff"));
     }
 
@@ -5785,9 +6209,11 @@
 
     endPlayerSpell() {
       if (this.playerSpellActive) this.audio.playSE("slipper_nova_end", { maxVoices: 1 });
+      const wasIde = this.survivorConfig.specialType === "debugSpiderWeb";
       this.playerSpellActive = false;
       this.playerSpellTimer = 0;
-      this.player.invincible = Math.min(this.player.invincible, 20);
+      this.ideEffect = null;
+      this.player.invincible = wasIde ? 0 : Math.min(this.player.invincible, 20);
     }
 
     syncFollowers() {
@@ -5797,12 +6223,38 @@
 
     shootFollowers() {
       for (const follower of this.followers) {
-        this.playerBullets.push(new Bullet(follower.x, follower.y - 12, 0, -8.4, 3, "player", "#8eeeff", { damage: 0.36 }));
+        if (this.survivorConfig.normalShotType === "homing") {
+          this.playerBullets.push(new HomingBullet(follower.x, follower.y - 12, {
+            ...this.survivorConfig.homing,
+            damage: this.survivorConfig.homing.damage * 0.35,
+            radius: 3,
+            speed: 8.5,
+          }));
+        } else {
+          this.playerBullets.push(new Bullet(follower.x, follower.y - 12, 0, -8.4, 3, "player", "#8eeeff", { damage: 0.36 }));
+        }
       }
+    }
+
+    applyIdeDamage(amount) {
+      for (const enemy of this.enemies) {
+        if (enemy.destroyed) continue;
+        enemy.hp -= amount;
+        if (enemy.hp <= 0) this.destroyEnemy(enemy);
+      }
+      if (this.boss && this.boss.entered && !this.boss.defeated) this.boss.takeDamage(this, amount * 0.22);
     }
 
     updatePlayerSpell() {
       if (!this.playerSpellActive || this.playerSpellTimer <= 0) return;
+      const config = this.survivorConfig;
+      if (config.specialType === "debugSpiderWeb") {
+        const ide = config.ide;
+        this.player.invincible = Math.max(this.player.invincible, 3);
+        if (this.ideEffect) this.ideEffect.age += 1;
+        if (this.playerSpellTimer % ide.tickInterval === 0) this.applyIdeDamage(ide.damageTick);
+        return;
+      }
       if (!this.playerSpellFirePlayed && this.playerSpellTimer <= 154) {
         this.playerSpellFirePlayed = true;
         this.audio.playSE("slipper_nova_fire", { maxVoices: 1 });
@@ -6345,6 +6797,13 @@
       this.lasers = [];
       this.iceWalls = [];
       this.decorativeSnowflakes = [];
+      this.playerBullets = [];
+      this.bossSpellCutin = 0;
+      this.bossSpellCutinName = "";
+      this.pendingBossCardStart = 0;
+      this.pendingBossDefeat = 0;
+      this.state.shake = 0;
+      this.boss.invincible = false;
       this.endPlayerSpell();
       this.audio.pauseStage();
       this.state.showMessage("消滅", 120);
@@ -6352,14 +6811,25 @@
         this.boss = null;
         this.state.mode = "clear";
         this.saveCurrentRun(true);
+        const nextStageId = this.getNextStageId();
+        if (nextStageId) {
+          this.save.saveProgress({
+            highestReachedStage: STAGE_ORDER.indexOf(nextStageId) > STAGE_ORDER.indexOf(this.save.data.highestReachedStage)
+              ? nextStageId
+              : this.save.data.highestReachedStage,
+            currentStoryStage: this.currentMode === "arcade" ? nextStageId : this.currentStageId,
+          });
+        }
         this.refreshTitleMenu();
         this.state.showMessage(this.currentStage.clearMessage, 9999);
-        this.startDialogue(this.currentStage.endingScene, () => {
+        const finalizeClear = () => {
           this.state.mode = "clear";
           if (this.currentMode === "arcade" && this.getNextStageId()) {
             this.clearAdvanceTimer = ARCADE_CLEAR_WAIT_FRAMES;
           }
-        });
+        };
+        if (this.currentStage.endingScene) this.startDialogue(this.currentStage.endingScene, finalizeClear);
+        else finalizeClear();
       });
     }
 
@@ -6384,7 +6854,7 @@
       this.particles.forEach((p) => p.draw(ctx));
       if (this.state.mode === "stage") {
         this.drawMobileJoystick();
-        this.followers.forEach((follower) => follower.draw(ctx, this.state.time));
+        this.followers.forEach((follower) => follower.draw(ctx, this.state.time, this.survivorConfig));
         this.player.draw(ctx, this.state.time);
       }
 
@@ -6457,6 +6927,10 @@
 
     drawPlayerSpellEffects() {
       if (!this.playerSpellActive || this.playerSpellTimer <= 0) return;
+      if (this.survivorConfig.specialType === "debugSpiderWeb") {
+        this.drawIdeEffect();
+        return;
+      }
       const beam = this.getPlayerSpellBeam();
       ctx.save();
       ctx.globalCompositeOperation = "screen";
@@ -6501,6 +6975,44 @@
       ctx.restore();
     }
 
+    drawIdeEffect() {
+      if (!this.ideEffect) return;
+      const ide = this.survivorConfig.ide;
+      const nodes = this.ideEffect.nodes;
+      const age = this.ideEffect.age;
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < nodes.length; i += 1) {
+        const a = nodes[i];
+        for (const offset of [1, 3]) {
+          const b = nodes[(i + offset) % nodes.length];
+          ctx.strokeStyle = `rgba(83, 222, 255, ${ide.cableOpacity * (offset === 1 ? 1 : 0.55)})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+          if (offset === 1) {
+            const signal = (age * ide.cableAnimationSpeed + a.phase) % 1;
+            ctx.fillStyle = "rgba(235, 254, 255, 0.92)";
+            ctx.beginPath();
+            ctx.arc(a.x + (b.x - a.x) * signal, a.y + (b.y - a.y) * signal, 2.4, 0, TAU);
+            ctx.fill();
+          }
+        }
+        const pulse = 5 + Math.sin(age * 0.08 + a.phase) * 1.5;
+        ctx.fillStyle = "rgba(19, 83, 117, 0.82)";
+        ctx.strokeStyle = "rgba(178, 247, 255, 0.95)";
+        ctx.beginPath();
+        ctx.rect(a.x - pulse, a.y - pulse, pulse * 2, pulse * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(7, 28, 42, 0.2)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
     drawPlayerSpellCutin() {
       if (this.playerSpellCutin <= 0) return;
       const alpha = Math.min(0.78, this.playerSpellCutin / 28);
@@ -6510,14 +7022,17 @@
       ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = visibility;
-      if (this.slipperNovaCutinLoaded) {
+      const isIde = this.survivorConfig.specialType === "debugSpiderWeb";
+      const cutin = isIde ? this.shionCutin : this.slipperNovaCutin;
+      const cutinLoaded = isIde ? this.shionCutinLoaded : this.slipperNovaCutinLoaded;
+      if (cutinLoaded) {
         const bandH = 190;
         const bandY = H / 2 - bandH / 2;
         ctx.fillStyle = "#080907";
         ctx.fillRect(0, bandY - 5, W, bandH + 10);
         ctx.save();
         ctx.translate(slideX, 0);
-        this.drawImageCover(this.slipperNovaCutin, 0, bandY, W, bandH);
+        this.drawImageCover(cutin, 0, bandY, W, bandH);
         ctx.restore();
         const sheen = ctx.createLinearGradient(0, bandY, W, bandY + bandH);
         sheen.addColorStop(0, "rgba(255, 220, 112, 0.05)");
@@ -6531,10 +7046,10 @@
       ctx.textAlign = "right";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
       ctx.shadowBlur = 8;
-      ctx.fillText("SLIPPER NOVA", W - 18, H / 2 + 64);
+      ctx.fillText(isIde ? "DEBUG SPIDER WEB" : "SLIPPER NOVA", W - 18, H / 2 + 64);
       ctx.fillStyle = "#ffe18a";
       ctx.font = "800 15px system-ui, sans-serif";
-      ctx.fillText("極履技「スリッパ・ノヴァ」", W - 18, H / 2 + 88);
+      ctx.fillText(this.survivorConfig.specialName, W - 18, H / 2 + 88);
       ctx.restore();
     }
 
@@ -6813,7 +7328,7 @@
       ctx.fillStyle = "#fff0a8";
       ctx.font = "700 13px system-ui, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(`履技 x ${this.playerSpellCount}`, 12, 55);
+      ctx.fillText(`${this.specialLabel} x ${this.playerSpellCount}`, 12, 55);
       ctx.textAlign = "right";
       ctx.fillText(`CP ${this.checkpoints.current}  CONT ${this.continueCount}`, W - 12, 55);
       ctx.fillStyle = "#e8c8ff";
@@ -7011,7 +7526,7 @@
         ctx.fillText(`出撃サバイバー　${selected.name}`, W / 2, 570);
         ctx.fillStyle = "rgba(239, 255, 237, 0.75)";
         ctx.font = "13px system-ui, sans-serif";
-        ctx.fillText("結城紫苑の専用性能・立ち絵は今後実装", W / 2, 604);
+        ctx.fillText(selected.id === "shion" ? "ホーミング弾 / PC演算端末 / IDE技" : "正面集中弾 / 随履 / スリッパ・ノヴァ", W / 2, 604);
         ctx.fillText("Esc / B で戻る", W / 2, 632);
         return;
       }
@@ -7038,9 +7553,9 @@
       ctx.font = "13px system-ui, sans-serif";
       if (this.titlePanel === "how") {
         ctx.fillText("移動: 矢印/WASD/ドラッグ  低速: Shift/低速ボタン", W / 2, 632);
-        ctx.fillText("ショット: Z/Space  履技: X/履技ボタン  ポーズ: Esc/P/MENU", W / 2, 656);
-        ctx.fillText("マウス: 移動  左ボタンショット  右クリック履技", W / 2, 680);
-        ctx.fillText("Xbox: 左スティック/D-pad移動  Aショット/決定  X履技  LB/RB低速", W / 2, 704);
+        ctx.fillText(`ショット: Z/Space  ${this.specialLabel}: X/${this.specialLabel}ボタン  ポーズ: Esc/P/MENU`, W / 2, 656);
+        ctx.fillText(`マウス: 移動  左ボタンショット  右クリック${this.specialLabel}`, W / 2, 680);
+        ctx.fillText(`Xbox: 左スティック/D-pad移動  Aショット/決定  X${this.specialLabel}  LB/RB低速`, W / 2, 704);
       } else if (this.titlePanel === "score") {
         ctx.fillText(`EASY　S1 ${this.save.getHighScore("easy", "stage1")}　S2 ${this.save.getHighScore("easy", "stage2")}　S3 ${this.save.getHighScore("easy", "stage3")}　S4 ${this.save.getHighScore("easy", "stage4")}`, W / 2, 632);
         ctx.fillText(`NORMAL　S1 ${this.save.getHighScore("normal", "stage1")}　S2 ${this.save.getHighScore("normal", "stage2")}　S3 ${this.save.getHighScore("normal", "stage3")}　S4 ${this.save.getHighScore("normal", "stage4")}`, W / 2, 656);
@@ -7213,7 +7728,28 @@
     const finalTarget = debugParams.get("final");
     const endingTarget = debugParams.get("ending");
     const unlockTarget = debugParams.get("unlock");
+    const survivorTarget = debugParams.get("survivor") || debugParams.get("character");
+    const shionTarget = debugParams.get("shion");
+    if (shionTarget === "unlock") {
+      game.save.saveProgress({ unlockedCharacters: Array.from(new Set([...game.save.data.unlockedCharacters, "shion"])) });
+    }
+    if (shionTarget === "lock") {
+      game.save.saveProgress({ unlockedCharacters: ["haou"], selectedCharacter: "haou" });
+    }
+    if (survivorTarget && SURVIVORS[survivorTarget]) {
+      const unlockedCharacters = Array.from(new Set([...game.save.data.unlockedCharacters, survivorTarget]));
+      game.save.saveProgress({ unlockedCharacters, selectedCharacter: survivorTarget });
+      game.applySelectedCharacter();
+    }
     if (stageId) game.beginDebugStage(stageId, phase, finalTarget);
+    if (debugParams.get("power")) {
+      game.power.value = clamp(Number(debugParams.get("power")) || 0, 0, game.power.max);
+      game.syncFollowers();
+    }
+    if (debugParams.get("special") === "max" || debugParams.get("ide") === "ready") {
+      game.playerSpellCount = 3;
+      game.playerSpellCooldown = 0;
+    }
     if (endingTarget) game.debugEnding(endingTarget);
     if (unlockTarget === "on") game.debugEnding("unlocked");
     if (unlockTarget === "off") game.debugEnding("locked");

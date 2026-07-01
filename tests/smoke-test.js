@@ -853,6 +853,48 @@ game.characterMenu.index = 1;
 game.activateCharacterItem();
 assert.equal(game.save.data.selectedCharacter, "shion", "unlocked Shion should be selectable");
 assert.equal(game.player.characterId, "shion", "selected survivor ID should be applied to the player");
+assert.equal(game.specialLabel, "IDE技", "Shion should replace the special-resource label with IDE技");
+assert.match(game.player.image.src, /assets\/characters\/shion\/player\.png/, "Shion should load her dedicated player asset");
+if (game.dialogue.active) game.dialogue.completeNow();
+
+game.beginStageSelect("stage1");
+game.dialogue.completeNow();
+game.state.mode = "stage";
+game.enemies = [{ x: game.player.x + 120, y: game.player.y - 260, r: 12, hp: 50, destroyed: false, type: "small", scoreValue: 100 }];
+game.playerBullets = [];
+game.player.shoot(game.playerBullets, 2, game.survivorConfig);
+assert.ok(game.playerBullets.length >= 2, "Shion power levels should increase homing shot count");
+assert.ok(game.playerBullets.every((bullet) => bullet.homing), "Shion normal shots should be homing bullets");
+const homingBullet = game.playerBullets[0];
+for (let i = 0; i < 8; i += 1) homingBullet.update(game);
+assert.ok(homingBullet.vx > 0, "homing bullet should curve toward a target on the right");
+
+game.power.value = game.power.max;
+game.syncFollowers();
+assert.equal(game.followers.length, 4, "Shion should reuse POWER for up to four PC options");
+const normalOptionX = game.followers[0].x;
+game.followers[0].update(game.player, true, game.survivorConfig);
+assert.notEqual(game.followers[0].x, normalOptionX, "LOW SPEED should move PC options into their focused formation");
+
+game.enemyBullets = [{ x: 20, y: 20 }];
+game.playerSpellCount = 3;
+game.playerSpellCooldown = 0;
+game.playerSpellActive = false;
+const ideTargetHp = game.enemies[0].hp;
+game.activatePlayerSpell();
+assert.equal(game.playerSpellCount, 2, "IDE技 should consume the shared special stock exactly once");
+assert.equal(game.enemyBullets.length, 0, "IDE技 should clear regular enemy bullets on activation");
+assert.ok(game.ideEffect?.nodes.length > 0, "IDE技 should create a lightweight cable-network effect");
+assert.ok(game.enemies[0].hp < ideTargetHp, "IDE技 should apply initial full-screen damage");
+game.endPlayerSpell();
+assert.equal(game.ideEffect, null, "IDE技 visuals must be destroyed when the special ends");
+assert.equal(game.player.invincible, 0, "IDE技 invincibility must not remain after the effect ends");
+
+game.save.saveProgress({ selectedCharacter: "haou" });
+game.applySelectedCharacter();
+assert.equal(game.specialLabel, "履技", "switching back to Haou should restore the original special label");
+game.save.saveProgress({ selectedCharacter: "shion" });
+game.applySelectedCharacter();
 assert.equal(game.save.data.newCharacterNotificationSeen, true, "opening survivor select should clear its NEW notification");
 game.titlePanel = "stage";
 game.refreshTitleMenu();
@@ -894,6 +936,29 @@ finishBossCardTransition();
 assert.equal(game.boss.currentCard.pattern, "birchHorizontalBurial", "Stage4 survival timeout should advance to phase 3");
 assert.equal(game.boss.invincible, false, "Stage4 survival completion should always release boss invincibility");
 assert.equal(game.decorativeSnowflakes.length, 0, "Stage4 decorative snow should clear on phase transition");
+
+game.currentMode = "arcade";
+game.save.saveProgress({ gameCleared: false, endingViewed: false, exStageUnlocked: false });
+game.boss.cardIndex = game.boss.spellCards.length - 1;
+game.boss.currentCard = game.boss.spellCards[game.boss.cardIndex];
+game.iceWalls = [{ age: 1 }];
+game.decorativeSnowflakes = [{ age: 1 }];
+game.enemyBullets = [{ x: 1, y: 1 }];
+game.defeatBoss();
+assert.equal(game.dialogue.sceneName, "stage4_boss_defeat_shion", "Stage4 defeat should select Shion's dialogue route");
+game.dialogue.completeNow();
+assert.equal(game.state.mode, "clear", "Stage4 defeat dialogue should reach the clear screen");
+assert.ok(game.clearAdvanceTimer > 0, "arcade Stage4 clear should schedule Stage5 automatically");
+assert.equal(game.save.data.clearFlags.stage4, true, "Stage4 clear should unlock Stage5 persistently");
+assert.equal(game.save.data.gameCleared, false, "Stage4 clear must not set the full-game clear flag");
+game.clearAdvanceTimer = 1;
+game.update();
+assert.equal(game.currentStageId, "stage5", "arcade Stage4 clear should advance to Stage5");
+assert.equal(game.finalStageDirector.active, true, "Stage5 transition should start the final-stage director");
+assert.equal(game.player.characterId, "shion", "Stage5 transition should preserve and reapply Shion");
+assert.equal(game.specialLabel, "IDE技", "Stage5 transition should preserve Shion's IDE label");
+assert.equal(game.iceWalls.length, 0, "Stage4 wall hitboxes must not leak into Stage5");
+assert.equal(game.decorativeSnowflakes.length, 0, "Stage4 snow decoration must not leak into Stage5");
 
 const finalDebugTargets = [
   ["rush1", "rush", "スギノミコト", 0],

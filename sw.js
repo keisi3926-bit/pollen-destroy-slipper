@@ -1,4 +1,4 @@
-const CACHE_VERSION = "pollen-destroy-survivor-v0.40.0";
+const CACHE_VERSION = "pollen-destroy-survivor-v0.41.0";
 const APP_SHELL = [
   "./",
   "index.html",
@@ -44,6 +44,8 @@ const APP_SHELL = [
   "assets/audio/stage4.mp3",
   "assets/audio/shirakaba-boss.mp3",
   "assets/characters/player.png",
+  "assets/characters/shion/player.png",
+  "assets/characters/shion/cut-in.png",
   "assets/characters/suginomikoto.png",
   "assets/characters/hinoki_shogun.png",
   "assets/characters/lord_ragweed.png",
