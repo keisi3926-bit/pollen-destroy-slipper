@@ -26,7 +26,34 @@ body {
   color: #eef7e8;
   font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
   touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.game-shell,
+#gameCanvas,
+.update-panel,
+.menu-button,
+.slow-button,
+.spell-button,
+button,
+canvas,
+img {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
+.game-shell,
+#gameCanvas,
+.menu-button,
+.slow-button,
+.spell-button,
+button {
+  touch-action: none;
 }
 
 .game-shell {

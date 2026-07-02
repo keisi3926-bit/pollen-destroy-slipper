@@ -186,7 +186,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.41.0";
+  const APP_VERSION = "0.41.1";
   const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4", "stage5"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -423,7 +423,7 @@
           {
             name: "Phase 1 通常弾幕",
             duration: 1500,
-            durationTimes: { easy: 2400, normal: 2100, hard: 1500 },
+            durationTimes: { easy: 4500, normal: 3900, hard: 3000 },
             hp: 300,
             pattern: "normalSpread",
             type: "normal",
@@ -476,7 +476,7 @@
           {
             name: "第一神威「檜扇陣」",
             duration: 1500,
-            durationTimes: { easy: 2400, normal: 2100, hard: 1500 },
+            durationTimes: { easy: 4800, normal: 4200, hard: 3300 },
             hp: 430,
             pattern: "hinokiFan",
             type: "normal",
@@ -529,7 +529,7 @@
           {
             name: "神威「秋塵毒花」",
             duration: 1620,
-            durationTimes: { easy: 2520, normal: 2220, hard: 1620 },
+            durationTimes: { easy: 5100, normal: 4500, hard: 3600 },
             hp: 510,
             pattern: "ragweedPoisonBloom",
             type: "spell",
@@ -584,7 +584,7 @@
           {
             name: "第一神威「白樺氷晶結界」",
             duration: 1800,
-            durationTimes: { easy: 2700, normal: 2340, hard: 1800 },
+            durationTimes: { easy: 5400, normal: 4800, hard: 3900 },
             hp: 560,
             pattern: "birchCrystalBarrier",
             type: "spell",
@@ -1265,7 +1265,7 @@
           hard: { stage1: 0, stage2: 0, stage3: 0, stage4: 0, stage5: 0, total: 0 },
         },
         clearFlags: { stage1: false, stage2: false, stage3: false, stage4: false, stage5: false },
-        settings: { lastDifficulty: "normal", volume: 0.5, gamepadEnabled: true },
+        settings: { lastDifficulty: "normal", volume: 0.5, gamepadEnabled: true, playerSpeed: 0.9 },
         gameCleared: false,
         unlockedCharacters: ["haou"],
         selectedCharacter: "haou",
@@ -1491,7 +1491,8 @@
     update(input, bullets, game) {
       const slow = input.slow || input.gpSlow;
       const config = game?.survivorConfig || SURVIVORS.haou;
-      const baseSpeed = config.movementSpeed || 5;
+      const speedMultiplier = clamp(Number(game?.save?.data?.settings?.playerSpeed ?? 0.9), 0.6, 1.2);
+      const baseSpeed = (config.movementSpeed || 5) * speedMultiplier;
       const speed = slow ? baseSpeed * (config.lowSpeedMultiplier ?? 0.5) : baseSpeed;
       let mx = 0;
       let my = 0;
@@ -1512,7 +1513,7 @@
         if (mx || my) {
           const len = Math.hypot(mx, my) || 1;
           const scale = len > 1 ? 1 / len : 1;
-          const moveSpeed = input.touchActive ? MOBILE_CONTROLS.joystickMoveSpeed : speed;
+          const moveSpeed = input.touchActive ? MOBILE_CONTROLS.joystickMoveSpeed * speedMultiplier : speed;
           const slowScale = slow ? 0.5 : 1;
           this.x += mx * scale * moveSpeed * slowScale;
           this.y += my * scale * moveSpeed * slowScale;
@@ -4711,6 +4712,7 @@
       this.optionsMenu = new MenuManager([
         { label: "BGM VOLUME", action: "bgm" },
         { label: "SE VOLUME", action: "se" },
+        { label: "PLAYER SPEED", action: "speed" },
         { label: "MASTER MUTE", action: "mute" },
         { label: "会話表示", action: "dialogue" },
         { label: "BACK", action: "back" },
@@ -5169,6 +5171,21 @@
     }
 
     bindInput() {
+      const gameRoot = document.querySelector(".game-shell") || document.body;
+      const suppressNativeGesture = (event) => {
+        event.preventDefault?.();
+        return false;
+      };
+      ["contextmenu", "selectstart", "dragstart"].forEach((type) => {
+        gameRoot.addEventListener(type, suppressNativeGesture);
+      });
+      ["touchstart", "touchmove", "touchend", "touchcancel"].forEach((type) => {
+        gameRoot.addEventListener(type, (event) => {
+          if (event.target?.closest?.("button")) return;
+          if (event.cancelable !== false) event.preventDefault?.();
+        }, { passive: false });
+      });
+
       window.addEventListener("keydown", (e) => {
         if (isBrandSplashActive()) return;
         this.audio.unlock();
@@ -5578,6 +5595,10 @@
       } else if (action === "se") {
         this.audio.setSEVolume(this.audio.getSEVolume() + delta * 0.05);
         this.audio.playSE("item_p_small", { cooldown: 0, maxVoices: 1 });
+      } else if (action === "speed") {
+        const current = Number(this.save.data.settings.playerSpeed ?? 0.9);
+        const playerSpeed = clamp(Math.round((current + delta * 0.05) * 20) / 20, 0.6, 1.2);
+        this.save.saveSettings({ playerSpeed });
       } else if (action === "mute") {
         this.audio.toggleMute();
       } else if (action === "dialogue") {
@@ -5820,7 +5841,7 @@
         if (this.titlePanel === "options") {
           this.optionsMenu.index = hit;
           const action = this.optionsMenu.selected()?.action;
-          if (action === "bgm" || action === "se") this.adjustOption(pos.x < W / 2 ? -1 : 1);
+          if (action === "bgm" || action === "se" || action === "speed") this.adjustOption(pos.x < W / 2 ? -1 : 1);
           else this.activateOptionItem();
         } else if (this.titlePanel === "stage") {
           this.stageSelectMenu.index = hit;
@@ -5836,7 +5857,7 @@
         if (this.pauseOptionsOpen) {
           this.optionsMenu.index = hit;
           const action = this.optionsMenu.selected()?.action;
-          if (action === "bgm" || action === "se") this.adjustOption(pos.x < W / 2 ? -1 : 1);
+          if (action === "bgm" || action === "se" || action === "speed") this.adjustOption(pos.x < W / 2 ? -1 : 1);
           else this.activateOptionItem();
         } else if (this.pauseMenu.confirm) {
           this.pauseMenu.confirm.choice = hit;
@@ -5880,13 +5901,13 @@
       }
       const startY = this.state.mode === "title"
         ? (this.titlePanel === "options"
-            ? 365
+            ? 330
             : this.titlePanel === "stage"
               ? 360
               : this.titlePanel === "character"
                 ? 390
                 : 300)
-        : (this.pauseOptionsOpen ? 365 : 345);
+        : (this.pauseOptionsOpen ? 330 : 345);
       for (let i = 0; i < menu.items.length; i += 1) {
         const top = startY + i * 48;
         if (y >= top && y <= top + 38) return i;
@@ -6035,14 +6056,16 @@
         this.gamepad.navCooldown = 12;
       }
       if (justPressed(14) || (xDir < 0 && canRepeat)) {
-        if (this.state.mode === "title" && this.titlePanel === "options") this.adjustOption(-1);
+        if ((this.state.mode === "title" && this.titlePanel === "options")
+          || (this.state.mode === "paused" && this.pauseOptionsOpen)) this.adjustOption(-1);
         else if (this.state.mode === "title" && this.titleMenu.selected()?.label === "START GAME") this.changeDifficulty(-1);
         else if (menu.confirm) menu.confirm.choice = 0;
         else this.moveMenu(menu, -1);
         this.gamepad.navCooldown = 12;
       }
       if (justPressed(15) || (xDir > 0 && canRepeat)) {
-        if (this.state.mode === "title" && this.titlePanel === "options") this.adjustOption(1);
+        if ((this.state.mode === "title" && this.titlePanel === "options")
+          || (this.state.mode === "paused" && this.pauseOptionsOpen)) this.adjustOption(1);
         else if (this.state.mode === "title" && this.titleMenu.selected()?.label === "START GAME") this.changeDifficulty(1);
         else if (menu.confirm) menu.confirm.choice = 1;
         else this.moveMenu(menu, 1);
@@ -7405,22 +7428,27 @@
           drawLifeBar(barBaseY, this.boss.cardIndex === 2 ? currentRatio : 1, phase3State);
           drawLifeBar(barBaseY + barHeight + barGap, this.boss.cardIndex === 1 ? currentRatio : 0, phase2State);
         }
-        if (this.boss.currentCard && this.boss.currentCard.isSpell) {
+        if (this.boss.currentCard) {
           const card = this.boss.currentCard;
           const rest = card.survival
             ? Math.max(0, Math.ceil(card.survivalTimer))
             : Math.max(0, Math.ceil((card.duration - card.age) / 60));
-          const survivalUrgent = card.survival && card.survivalTimer <= 10;
-          ctx.fillStyle = survivalUrgent ? "rgba(102, 18, 14, 0.86)" : "rgba(8, 18, 15, 0.76)";
+          const survivalUrgent = rest <= 10;
+          ctx.fillStyle = survivalUrgent ? "rgba(102, 18, 14, 0.86)" : "rgba(8, 18, 15, 0.82)";
           const visibleBossBars = this.currentStageId === "stage5"
             ? 1
             : Math.max(1, card.lifeBars || (this.boss.cardIndex === 0 ? 1 : 2));
           const spellBoxY = barBaseY + visibleBossBars * (barHeight + barGap) + 8;
-          ctx.fillRect(78, spellBoxY, W - 156, 28);
+          ctx.fillRect(54, spellBoxY, W - 108, 34);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
+          ctx.font = "700 12px system-ui, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(card.name, 64, spellBoxY + 22, W - 210);
           ctx.fillStyle = survivalUrgent ? "#fff0e8" : "#fff1a8";
-          ctx.font = `800 ${survivalUrgent ? 18 : 15}px system-ui, sans-serif`;
-          ctx.textAlign = "center";
-          ctx.fillText(card.survival ? `SURVIVE  ${rest}` : `${card.name}  ${rest}`, W / 2, spellBoxY + 20);
+          ctx.font = `900 ${survivalUrgent ? 18 : 16}px system-ui, sans-serif`;
+          ctx.textAlign = "right";
+          const timerLabel = card.survival ? `SURVIVE  ${rest}` : `TIME  ${rest}`;
+          ctx.fillText(timerLabel, W - 64, spellBoxY + 23);
         } else if (this.currentStageId === "stage5" && this.finalStageDirector.phase === "abyss") {
           ctx.fillStyle = "rgba(20, 5, 28, 0.8)";
           ctx.fillRect(110, barBaseY + 17, W - 220, 25);
@@ -7432,11 +7460,13 @@
       }
 
       if (this.state.messageTimer > 0) {
+        const messageY = this.boss?.entered && this.boss.currentCard ? 178 : 96;
         ctx.fillStyle = "rgba(9, 20, 15, 0.68)";
-        ctx.fillRect(64, 96, W - 128, 42);
+        ctx.fillRect(64, messageY, W - 128, 42);
         ctx.fillStyle = "#fff7bd";
         ctx.font = "700 20px system-ui, sans-serif";
-        ctx.fillText(this.state.message, W / 2, 124);
+        ctx.textAlign = "center";
+        ctx.fillText(this.state.message, W / 2, messageY + 28);
       }
 
       if (this.grazeFlash > 0) {
@@ -7580,24 +7610,30 @@
       ctx.fillStyle = "#f8ffe9";
       ctx.font = "900 28px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("OPTIONS", W / 2, 350);
-      this.drawMenu(this.optionsMenu, 365, (item) => {
+      ctx.fillText("OPTIONS", W / 2, 314);
+      this.drawMenu(this.optionsMenu, 330, (item) => {
         if (item.action === "bgm") return this.formatVolumeOption("BGM VOLUME", this.audio.getBGMVolume());
         if (item.action === "se") return this.formatVolumeOption("SE VOLUME", this.audio.getSEVolume());
+        if (item.action === "speed") return this.formatPercentOption("PLAYER SPEED", this.save.data.settings.playerSpeed ?? 0.9);
         if (item.action === "mute") return `MASTER MUTE  [${this.audio.settings.masterMute ? "ON" : "OFF"}]`;
         if (item.action === "dialogue") return `会話表示  [${this.save.data.dialogueMode === "skipAll" ? "すべてスキップ" : "すべて表示"}]`;
         return item.label;
       });
       ctx.fillStyle = "rgba(239, 255, 237, 0.75)";
       ctx.font = "13px system-ui, sans-serif";
-      ctx.fillText("左右・画面左/右タップで調整", W / 2, 630);
-      ctx.fillText("Esc / B で戻る", W / 2, 654);
+      ctx.fillText("左右・画面左/右タップで調整", W / 2, 646);
+      ctx.fillText("Esc / B で戻る", W / 2, 670);
     }
 
     formatVolumeOption(label, value) {
       const percent = Math.round(value * 100);
       const filled = Math.round(percent / 10);
       return `${label}  [${"■".repeat(filled)}${"□".repeat(10 - filled)}] ${percent}`;
+    }
+
+    formatPercentOption(label, value) {
+      const percent = Math.round(clamp(Number(value), 0.6, 1.2) * 100);
+      return `${label}  [${percent}%]`;
     }
 
     drawMenu(menu, startY, labeler = (item) => item.label) {

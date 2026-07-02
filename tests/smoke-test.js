@@ -151,6 +151,7 @@ sandbox.window = {
 sandbox.window.window = sandbox.window;
 
 const source = fs.readFileSync(path.join(__dirname, "..", "game.js"), "utf8");
+const styles = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
 vm.runInNewContext(source, sandbox, { filename: "game.js" });
 
 const game = sandbox.window.__POLLEN_GAME__;
@@ -178,20 +179,25 @@ assert.equal(game.fullscreen.label(), "FULLSCREEN ON", "fullscreen menu label sh
 sandbox.document.fullscreenElement = null;
 game.openOptions();
 assert.equal(game.titlePanel, "options");
-assert.equal(game.optionsMenu.items.length, 5, "options should contain BGM, SE, mute, dialogue mode and back");
+assert.equal(game.optionsMenu.items.length, 6, "options should contain BGM, SE, player speed, mute, dialogue mode and back");
 const bgmBeforeTouch = game.audio.getBGMVolume();
-game.handleCanvasTap({ clientX: 350, clientY: 370 });
+game.handleCanvasTap({ clientX: 350, clientY: 350 });
 assert.equal(game.audio.getBGMVolume(), Math.min(1, bgmBeforeTouch + 0.05), "options touch right side should increase BGM");
 game.optionsMenu.index = 1;
 const seBeforeGamepad = game.audio.getSEVolume();
 game.handleGamepadMenu(Array(16).fill(false), (index) => index === 15, 0, 0, game.optionsMenu);
 assert.equal(game.audio.getSEVolume(), Math.min(1, seBeforeGamepad + 0.05), "Xbox right input should increase SE volume");
 game.optionsMenu.index = 2;
+assert.equal(game.save.data.settings.playerSpeed, 0.9, "default player speed should be slightly slower than the legacy value");
+game.adjustOption(1);
+assert.equal(game.save.data.settings.playerSpeed, 0.95, "player speed option should change in five percent steps");
+assert.equal(JSON.parse(localStorageData.get("pollenDestroySlipperSave")).settings.playerSpeed, 0.95, "player speed should persist");
+game.optionsMenu.index = 3;
 game.activateOptionItem();
 assert.equal(game.audio.settings.masterMute, true, "master mute option should toggle on");
 game.activateOptionItem();
 assert.equal(game.audio.settings.masterMute, false, "master mute option should toggle off");
-game.optionsMenu.index = 3;
+game.optionsMenu.index = 4;
 game.activateOptionItem();
 assert.equal(game.save.data.dialogueMode, "skipAll", "dialogue option should enable full auto skip");
 assert.equal(JSON.parse(localStorageData.get("pollenDestroySlipperSave")).dialogueMode, "skipAll", "dialogue mode should persist");
@@ -296,6 +302,17 @@ canvas.dispatch("contextmenu", {
   preventDefault() { contextPrevented = true; },
 });
 assert.equal(contextPrevented, true, "canvas context menu should be suppressed");
+
+for (const eventType of ["contextmenu", "selectstart", "dragstart", "touchmove"]) {
+  let nativeGesturePrevented = false;
+  sandbox.document.body.dispatch(eventType, {
+    cancelable: true,
+    preventDefault() { nativeGesturePrevented = true; },
+  });
+  assert.equal(nativeGesturePrevented, true, `${eventType} should be suppressed across the game root`);
+}
+assert.match(styles, /-webkit-touch-callout:\s*none/, "iOS touch callout should be disabled in CSS");
+assert.match(styles, /-webkit-user-drag:\s*none/, "iOS image dragging should be disabled in CSS");
 
 let rightClickPrevented = false;
 canvas.dispatch("pointerdown", {
@@ -499,7 +516,8 @@ assert.equal(game.boss.spellCards.length, 3, "boss battle should have three phas
 game.boss.beginCurrentCard(game);
 assert.equal(game.currentStage.bossLabel, "一面ボス", "Stage1 boss banner should identify the first stage");
 assert.equal(game.boss.currentCard.maxHp, 285, "NORMAL Stage1 phase one HP should use the tuned base and multiplier");
-assert.equal(game.boss.currentCard.duration, 2100, "NORMAL Stage1 phase one should allow enough time for normal shots");
+assert.equal(game.boss.currentCard.duration, 3900, "NORMAL Stage1 phase one should allow enough time for normal shots");
+assert.equal(game.boss.currentCard.isSpell, false, "Stage1 phase one should remain a normal attack while still exposing its timer");
 const finishBossCardTransition = () => {
   game.pendingBossCardStart = 0;
   game.boss.transitioning = false;
@@ -586,6 +604,7 @@ for (let i = 0; i < 20 && game.dialogue.active; i += 1) game.dialogue.update();
 assert.equal(game.audio.currentBGMName, "boss2", "Hinoki Shogun dialogue completion should switch boss BGM");
 assert.ok(game.suginomikotoCutin.src.includes("hinoki_shogun_divine_attack.png"), "Stage2 should use the Hinoki cut-in");
 assert.equal(game.boss.currentCard.survival, false, "Stage2 first phase should be an HP phase");
+assert.equal(game.boss.currentCard.duration, 4200, "NORMAL Stage2 first phase should use the extended clear window");
 game.boss.currentCard.hp = 0;
 game.boss.nextCard(game);
 finishBossCardTransition();
