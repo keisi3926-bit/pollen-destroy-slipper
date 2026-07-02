@@ -14,6 +14,9 @@
   const updateList = document.getElementById("updateList");
   const checkUpdateButton = document.getElementById("checkUpdateButton");
   const reloadUpdateButton = document.getElementById("reloadUpdateButton");
+  const nameEntryInput = document.getElementById("nameEntryInput");
+  const DEVELOPER_BUILD = window.__SOLE_DEBUG__ === true;
+  const TEST_BUILD = window.__POLLEN_TEST__ === true;
 
   const W = canvas.width;
   const H = canvas.height;
@@ -186,7 +189,7 @@
     scorePerGraze: 50,
     milestones: [100, 500, 1000],
   };
-  const APP_VERSION = "0.41.1";
+  const APP_VERSION = "0.42.0";
   const STAGE_ORDER = ["stage1", "stage2", "stage3", "stage4", "stage5"];
   const ARCADE_CLEAR_WAIT_FRAMES = 150;
   const FIXED_STEP_SECONDS = 1 / 60;
@@ -1313,16 +1316,18 @@
       }
     }
 
-    saveRun(difficulty, stageId, stageScore, checkpoint, cleared, continues, totalScore = stageScore) {
+    saveRun(difficulty, stageId, stageScore, checkpoint, cleared, continues, totalScore = stageScore, recordScore = true) {
       const current = this.data[difficulty] || this.defaultData()[difficulty];
-      current.highScore = Math.max(current.highScore || 0, totalScore);
+      if (recordScore) current.highScore = Math.max(current.highScore || 0, totalScore);
       current.maxCheckpoint = Math.max(current.maxCheckpoint || 0, checkpoint);
       current.cleared = Boolean(current.cleared || cleared);
       current.continues = Math.max(current.continues || 0, continues);
       this.data[difficulty] = current;
       const difficultyScores = this.data.highScores[difficulty];
-      difficultyScores[stageId] = Math.max(difficultyScores[stageId] || 0, stageScore);
-      difficultyScores.total = Math.max(difficultyScores.total || 0, totalScore);
+      if (recordScore) {
+        difficultyScores[stageId] = Math.max(difficultyScores[stageId] || 0, stageScore);
+        difficultyScores.total = Math.max(difficultyScores.total || 0, totalScore);
+      }
       if (cleared) this.data.clearFlags[stageId] = true;
       localStorage.setItem(this.key, JSON.stringify(this.data));
     }
@@ -1381,6 +1386,168 @@
     resetAll() {
       this.data = this.defaultData();
       localStorage.setItem(this.key, JSON.stringify(this.data));
+    }
+  }
+
+  class LocalLeaderboard {
+    constructor() {
+      this.key = "pollenDestroySurvivorRanking";
+      this.limit = 10;
+      this.entries = this.load();
+    }
+
+    load() {
+      try {
+        const value = JSON.parse(localStorage.getItem(this.key) || "[]");
+        if (!Array.isArray(value)) return [];
+        return value
+          .filter((entry) => Number.isFinite(entry?.score))
+          .sort((a, b) => b.score - a.score || String(a.date || "").localeCompare(String(b.date || "")))
+          .slice(0, this.limit);
+      } catch {
+        return [];
+      }
+    }
+
+    qualifies(score, continueCount = 0) {
+      if (continueCount !== 0 || score <= 0) return false;
+      if (this.entries.length < this.limit) return true;
+      return score > this.entries[this.entries.length - 1].score;
+    }
+
+    submit({ name, score, difficulty, character, continueCount, stage }) {
+      if (!this.qualifies(score, continueCount)) return false;
+      this.entries.push({
+        name: String(name || "AAA").trim().slice(0, 8) || "AAA",
+        score: Math.max(0, Math.floor(score)),
+        difficulty,
+        character,
+        continueCount,
+        stage,
+        date: new Date().toISOString(),
+      });
+      this.entries.sort((a, b) => b.score - a.score || a.date.localeCompare(b.date));
+      this.entries = this.entries.slice(0, this.limit);
+      localStorage.setItem(this.key, JSON.stringify(this.entries));
+      return true;
+    }
+  }
+
+  class NameEntryManager {
+    constructor(game, leaderboard, input) {
+      this.game = game;
+      this.leaderboard = leaderboard;
+      this.input = input;
+      this.active = false;
+      this.value = "";
+      this.record = null;
+      this.onComplete = null;
+      input?.addEventListener("input", () => {
+        this.value = this.sanitize(input.value);
+        input.value = this.value;
+      });
+      input?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          this.confirm();
+        }
+      });
+    }
+
+    sanitize(value) {
+      return Array.from(String(value || "").replace(/[\r\n\t]/g, "")).slice(0, 8).join("");
+    }
+
+    start(record, onComplete) {
+      if (!this.leaderboard.qualifies(record.score, record.continueCount)) {
+        onComplete?.();
+        return false;
+      }
+      this.active = true;
+      this.value = "";
+      this.record = record;
+      this.onComplete = onComplete;
+      this.game.state.mode = "nameEntry";
+      if (this.input) {
+        this.input.value = "";
+        this.input.classList.add("is-active");
+        setTimeout(() => this.input?.focus?.(), 0);
+      }
+      return true;
+    }
+
+    handleKey(event) {
+      if (!this.active) return false;
+      if (event.key === "Enter") this.confirm();
+      else if (event.key === "Escape") this.cancel();
+      else if (event.key === "Backspace") this.setValue(Array.from(this.value).slice(0, -1).join(""));
+      else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        this.setValue(this.value + event.key.toUpperCase());
+      }
+      return true;
+    }
+
+    setValue(value) {
+      this.value = this.sanitize(value);
+      if (this.input) this.input.value = this.value;
+    }
+
+    confirm() {
+      if (!this.active) return;
+      this.leaderboard.submit({ ...this.record, name: this.value || "AAA" });
+      this.finish();
+    }
+
+    cancel() {
+      if (!this.active) return;
+      this.finish();
+    }
+
+    finish() {
+      const callback = this.onComplete;
+      this.active = false;
+      this.record = null;
+      this.onComplete = null;
+      this.input?.classList.remove("is-active");
+      this.input?.blur?.();
+      callback?.();
+    }
+
+    handleTap(x, y) {
+      if (!this.active) return false;
+      if (y >= 500 && y <= 560) this.confirm();
+      else this.input?.focus?.();
+      return true;
+    }
+
+    draw(ctx) {
+      if (!this.active) return;
+      ctx.fillStyle = "rgba(3, 8, 7, 0.94)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff0a8";
+      ctx.font = "900 34px system-ui, sans-serif";
+      ctx.fillText("NAME ENTRY", W / 2, 245);
+      ctx.fillStyle = "#f4fff0";
+      ctx.font = "700 18px system-ui, sans-serif";
+      ctx.fillText(`SCORE  ${this.record?.score || 0}`, W / 2, 294);
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(70, 340, W - 140, 74);
+      ctx.strokeStyle = "#fff0a8";
+      ctx.strokeRect(70, 340, W - 140, 74);
+      ctx.fillStyle = "#9fe9ff";
+      ctx.font = "900 30px ui-monospace, monospace";
+      ctx.fillText((this.value || "_"), W / 2, 389);
+      ctx.fillStyle = "rgba(255,240,168,0.18)";
+      ctx.fillRect(110, 500, W - 220, 60);
+      ctx.strokeStyle = "#fff0a8";
+      ctx.strokeRect(110, 500, W - 220, 60);
+      ctx.fillStyle = "#f7fff0";
+      ctx.font = "800 19px system-ui, sans-serif";
+      ctx.fillText("ENTRY", W / 2, 538);
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.fillStyle = "rgba(247,255,240,0.74)";
+      ctx.fillText("最大8文字 / Enter・タップで決定", W / 2, 604);
     }
   }
 
@@ -1575,7 +1742,7 @@
     }
 
     hit(game) {
-      if (this.invincible > 0 || game.state.mode !== "stage") return;
+      if (game.developerMode || this.invincible > 0 || game.state.mode !== "stage") return;
       const hadLives = game.life.loseLife();
       game.playerSpellCount = 3;
       if (game.continueFullPower) {
@@ -4175,7 +4342,7 @@
       this.phase = "silence";
       this.timer = ENDING_CONFIG.silenceFrames;
       this.rewards = game.save.unlockAllClearRewards();
-      game.saveCurrentRun(true);
+      game.saveCurrentRun(true, false);
       game.refreshTitleMenu();
       game.state.mode = "ending";
       game.audio.stopBGM();
@@ -4272,8 +4439,10 @@
     finish() {
       this.game.save.saveProgress({ endingViewed: true });
       this.active = false;
-      this.game.returnToTitle();
-      this.game.ensureTitleBGM();
+      this.game.finishRun(() => {
+        this.game.returnToTitle();
+        this.game.ensureTitleBGM();
+      }, true);
     }
 
     skipRect() {
@@ -4650,6 +4819,7 @@
 
   class Game {
     constructor() {
+      this.developerMode = DEVELOPER_BUILD;
       this.currentStageId = "stage1";
       this.state = new GameState();
       this.difficulty = new DifficultyManager();
@@ -4658,6 +4828,8 @@
       this.power = new PowerManager();
       this.checkpoints = new CheckpointManager();
       this.save = new SaveManager();
+      this.leaderboard = new LocalLeaderboard();
+      this.nameEntry = new NameEntryManager(this, this.leaderboard, nameEntryInput);
       this.difficulty.set(this.save.data.settings?.lastDifficulty || "normal");
       this.background = new BackgroundManager(this.currentStage.background, this.currentStage.backgroundMode);
       this.audio = new AudioManager();
@@ -4718,6 +4890,12 @@
         { label: "BACK", action: "back" },
       ]);
       this.pauseMenu = new MenuManager();
+      this.developerMenu = new MenuManager();
+      this.developerStageMenu = new MenuManager();
+      this.developerBossMenu = new MenuManager();
+      this.developerPhaseMenu = new MenuManager();
+      this.developerOpen = false;
+      this.developerPanel = "main";
       this.gameOverMenu = new MenuManager();
       this.pauseOptionsOpen = false;
       this.player = new Player();
@@ -4755,6 +4933,8 @@
       this.grazeFlash = 0;
       this.continuesLeft = INITIAL_CONTINUES;
       this.continueCount = 0;
+      this.rankingEligible = true;
+      this.rankingSubmitted = false;
       this.missedDuringCard = false;
       this.pendingBossDefeat = 0;
       this.pendingBossCardStart = 0;
@@ -4764,8 +4944,11 @@
       this.stageStartScore = 0;
       this.spawnedWaves = new Set();
       this.currentWave = 0;
-      this.debugVisible = false;
-      this.debugMode = false;
+      this.debugVisible = this.developerMode;
+      this.debugMode = this.developerMode;
+      this.fps = 60;
+      this.fpsFrames = 0;
+      this.fpsLastTime = 0;
       this.enemyBulletsSpawnedFrame = 0;
       this.enemyBulletSpawnHistory = [];
       this.spellKeyHeld = false;
@@ -4887,6 +5070,7 @@
         grazeMilestoneIndex: this.grazeMilestoneIndex,
         continuesLeft: this.continuesLeft,
         continueCount: this.continueCount,
+        rankingEligible: this.rankingEligible,
         difficulty: this.difficulty.current,
       };
     }
@@ -4909,6 +5093,7 @@
     }
 
     beginDebugStage(stageId, phase = 0, finalTarget = null) {
+      if (!this.developerMode) return false;
       if (!STAGE_DEFINITIONS[stageId]) return false;
       this.debugMode = true;
       this.currentMode = "stageSelect";
@@ -4950,13 +5135,17 @@
         this.checkpoints.reset();
         this.continuesLeft = carried.continuesLeft;
         this.continueCount = carried.continueCount;
+        this.rankingEligible = carried.rankingEligible;
         this.difficulty.set(carried.difficulty);
       } else if (!keepScore) {
         this.score.reset();
         this.checkpoints.reset();
         this.continuesLeft = INITIAL_CONTINUES;
         this.continueCount = 0;
+        this.rankingEligible = !this.developerMode;
+        this.rankingSubmitted = false;
       }
+      if (fromCheckpoint) this.rankingEligible = false;
       this.player.reset();
       this.enemies = [];
       this.playerBullets = [];
@@ -4975,7 +5164,7 @@
       this.ending.reset();
       this.boss = null;
       this.playerSpellCount = carried ? carried.spellCount : keepScore ? preservedSpellCount : 3;
-      spellButton.disabled = this.playerSpellCount <= 0;
+      spellButton.disabled = !this.developerMode && this.playerSpellCount <= 0;
       this.playerSpellTimer = 0;
       this.playerSpellCutin = 0;
       this.bossSpellCutin = 0;
@@ -5110,13 +5299,16 @@
         this.advanceArcadeStage();
         return;
       }
-      const returnToStageSelect = this.currentMode === "stageSelect";
-      this.returnToTitle();
-      if (returnToStageSelect) {
-        this.titlePanel = "stage";
-        this.stageSelectMenu.index = Math.max(0, STAGE_ORDER.indexOf(this.currentStageId));
-        this.ensureTitleBGM();
-      }
+      const finish = () => {
+        const returnToStageSelect = this.currentMode === "stageSelect";
+        this.returnToTitle();
+        if (returnToStageSelect) {
+          this.titlePanel = "stage";
+          this.stageSelectMenu.index = Math.max(0, STAGE_ORDER.indexOf(this.currentStageId));
+          this.ensureTitleBGM();
+        }
+      };
+      this.finishRun(finish, true);
     }
 
     startEnding(target = "start") {
@@ -5124,6 +5316,7 @@
     }
 
     debugEnding(target) {
+      if (!this.developerMode) return false;
       this.debugMode = true;
       if (target === "reset") {
         this.save.resetAll();
@@ -5190,24 +5383,29 @@
         if (isBrandSplashActive()) return;
         this.audio.unlock();
         if (this.state.mode === "title") this.ensureTitleBGM();
+        if (this.state.mode === "nameEntry") {
+          e.preventDefault();
+          this.nameEntry.handleKey(e);
+          return;
+        }
         if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Shift", "x", "X", "f", "F", "Escape", "Enter"].includes(e.key)) e.preventDefault();
         if ((e.key === "f" || e.key === "F") && !e.repeat) {
           this.toggleFullscreen();
           return;
         }
-        if (e.key === "F3") {
+        if (this.developerMode && (e.key === "F3" || e.key === "F8")) {
           if (!e.repeat) this.debugVisible = !this.debugVisible;
           return;
         }
-        if (this.debugMode && !e.repeat && e.key === "F6") {
+        if (this.developerMode && !e.repeat && e.key === "F6") {
           if (this.boss?.currentCard && !this.boss.invincible) this.boss.currentCard.hp = Math.min(this.boss.currentCard.hp, 1);
           return;
         }
-        if (this.debugMode && !e.repeat && e.key === "F7") {
+        if (this.developerMode && !e.repeat && e.key === "F7") {
           if (this.boss?.currentCard) this.boss.nextCard(this, this.boss.currentCard.survival ? "survival-timeout" : "hp-break");
           return;
         }
-        if (this.debugMode && !e.repeat && e.key === "F8") {
+        if (this.developerMode && !e.repeat && e.key === "F9") {
           this.cancelEnemyBullets(false);
           this.lasers = [];
           this.finalStageDirector.clearSpecialHazards();
@@ -5410,6 +5608,10 @@
         if (key === "Escape" || key === "z" || key === "Z" || key === " " || key === "Enter") this.titlePanel = "stage";
         return;
       }
+      if (this.titlePanel === "ranking") {
+        if (key === "Escape" || key === "z" || key === "Z" || key === " " || key === "Enter") this.titlePanel = "main";
+        return;
+      }
       if (this.titlePanel === "options") {
         if (key === "ArrowUp" || key === "w" || key === "W") this.moveMenu(this.optionsMenu, -1);
         if (key === "ArrowDown" || key === "s" || key === "S") this.moveMenu(this.optionsMenu, 1);
@@ -5455,6 +5657,7 @@
       if (selected.action === "fullscreen") this.toggleFullscreen();
       if (label === "HOW TO PLAY") this.titlePanel = this.titlePanel === "how" ? "main" : "how";
       if (label === "HIGH SCORE") this.titlePanel = this.titlePanel === "score" ? "main" : "score";
+      if (selected.action === "ranking") this.titlePanel = "ranking";
     }
 
     ensureTitleBGM() {
@@ -5478,6 +5681,7 @@
         { label: "FULLSCREEN", action: "fullscreen", disabled: !this.fullscreen?.supported },
         { label: "HOW TO PLAY" },
         { label: "HIGH SCORE" },
+        { label: "RANKING", action: "ranking" },
       ]);
       this.stageSelectMenu.setItems([
         { label: STAGE_DEFINITIONS.stage1.selectLabel, action: "stage1" },
@@ -5633,14 +5837,120 @@
       if (this.state.mode !== "stage" || this.dialogue.active) return;
       this.state.mode = "paused";
       this.pauseOptionsOpen = false;
+      this.developerOpen = false;
       this.audio.pauseAll();
-      this.pauseMenu.setItems([
+      const items = [
         { label: "RESUME", action: "resume" },
         { label: "RETRY", action: "restart", confirm: "ステージを最初からやり直しますか？" },
         { label: "TITLE", action: "title", confirm: "タイトルへ戻りますか？" },
         { label: "OPTIONS", action: "options" },
         { label: "FULLSCREEN", action: "fullscreen", disabled: !this.fullscreen?.supported },
+      ];
+      if (this.developerMode) items.push({ label: "DEVELOPER", action: "developer" });
+      this.pauseMenu.setItems(items);
+    }
+
+    openDeveloperMenu(panel = "main") {
+      if (!this.developerMode) return false;
+      this.developerOpen = true;
+      this.developerPanel = panel;
+      this.developerMenu.setItems([
+        { label: "STAGE SELECT", action: "stagePanel" },
+        { label: "BOSS SELECT", action: "bossPanel" },
+        { label: "BOSS PHASE", action: "phasePanel" },
+        { label: "ABYSS DIRECT", action: "abyss" },
+        { label: "ENDING DIRECT", action: "ending" },
+        { label: "UNLOCK SHION", action: "shion" },
+        { label: "UNLOCK EX", action: "ex" },
+        { label: "POWER MAX", action: "power" },
+        { label: "SPECIAL MAX", action: "special" },
+        { label: "SCORE +100000", action: "score" },
+        { label: "CLEAR ALL ENEMIES", action: "clear" },
+        { label: "BACK", action: "back" },
       ]);
+      this.developerStageMenu.setItems(STAGE_ORDER.map((stageId) => ({
+        label: STAGE_DEFINITIONS[stageId].selectLabel,
+        action: stageId,
+      })).concat({ label: "BACK", action: "back" }));
+      this.developerBossMenu.setItems([
+        { label: "スギノミコト", action: "stage1" },
+        { label: "ヒノキ将軍", action: "stage2" },
+        { label: "ロード・ラグウィード", action: "stage3" },
+        { label: "シラカバ・プリースト", action: "stage4" },
+        { label: "BACK", action: "back" },
+      ]);
+      this.developerPhaseMenu.setItems([
+        { label: "大君 第1神威", action: "taikun1" },
+        { label: "大君 第2神威", action: "taikun2" },
+        { label: "大君 第3神威", action: "taikun3" },
+        { label: "大君 第4神威", action: "taikun4" },
+        { label: "大君 第5神威", action: "taikun5" },
+        { label: "大花粉大神", action: "daijin" },
+        { label: "ABYSS", action: "abyss" },
+        { label: "BACK", action: "back" },
+      ]);
+      return true;
+    }
+
+    getDeveloperMenu() {
+      if (this.developerPanel === "stage") return this.developerStageMenu;
+      if (this.developerPanel === "boss") return this.developerBossMenu;
+      if (this.developerPanel === "phase") return this.developerPhaseMenu;
+      return this.developerMenu;
+    }
+
+    activateDeveloperItem() {
+      if (!this.developerMode || !this.developerOpen) return;
+      const item = this.getDeveloperMenu().selected();
+      if (!item) return;
+      const action = item.action;
+      if (action === "back") {
+        if (this.developerPanel === "main") this.developerOpen = false;
+        else this.developerPanel = "main";
+        return;
+      }
+      if (action === "stagePanel" || action === "bossPanel" || action === "phasePanel") {
+        this.developerPanel = action.replace("Panel", "");
+        return;
+      }
+      if (this.developerPanel === "stage") {
+        this.beginDebugStage(action);
+        return;
+      }
+      if (this.developerPanel === "boss") {
+        this.beginDebugStage(action, 1);
+        return;
+      }
+      if (this.developerPanel === "phase" || action === "abyss") {
+        this.beginDebugStage("stage5", 0, action);
+        return;
+      }
+      if (action === "ending") this.debugEnding("start");
+      if (action === "shion") {
+        this.save.saveProgress({ unlockedCharacters: Array.from(new Set([...this.save.data.unlockedCharacters, "shion"])) });
+        this.refreshTitleMenu();
+      }
+      if (action === "ex") {
+        this.save.saveProgress({ exStageUnlocked: true });
+        this.refreshTitleMenu();
+      }
+      if (action === "power") {
+        this.power.value = this.power.max;
+        this.syncFollowers();
+      }
+      if (action === "special") {
+        this.playerSpellCount = 99;
+        this.playerSpellCooldown = 0;
+      }
+      if (action === "score") this.score.value += 100000;
+      if (action === "clear") {
+        this.enemies = [];
+        this.enemyBullets = [];
+        this.lasers = [];
+        this.iceWalls = [];
+        this.finalStageDirector.clearSpecialHazards();
+      }
+      this.state.showMessage(`DEV: ${item.label}`, 90);
     }
 
     resumeFromPause() {
@@ -5651,6 +5961,17 @@
     }
 
     handlePauseKey(key) {
+      if (this.developerOpen) {
+        const menu = this.getDeveloperMenu();
+        if (key === "ArrowUp" || key === "w" || key === "W") this.moveMenu(menu, -1);
+        if (key === "ArrowDown" || key === "s" || key === "S") this.moveMenu(menu, 1);
+        if (key === "z" || key === "Z" || key === " " || key === "Enter") this.activateDeveloperItem();
+        if (key === "Escape" || key === "p" || key === "P") {
+          if (this.developerPanel === "main") this.developerOpen = false;
+          else this.developerPanel = "main";
+        }
+        return;
+      }
       if (this.pauseOptionsOpen) {
         if (key === "ArrowUp" || key === "w" || key === "W") this.moveMenu(this.optionsMenu, -1);
         if (key === "ArrowDown" || key === "s" || key === "S") this.moveMenu(this.optionsMenu, 1);
@@ -5707,14 +6028,15 @@
         this.optionsMenu.index = 0;
       }
       if (action === "fullscreen") this.toggleFullscreen();
+      if (action === "developer") this.openDeveloperMenu();
     }
 
     openGameOverMenu() {
       this.state.mode = "gameover";
       this.audio.pauseAll();
-      this.saveCurrentRun(false);
+      this.saveCurrentRun(false, false);
       this.gameOverMenu.setItems([
-        { label: "CONTINUE", action: "continue", disabled: this.continuesLeft <= 0 },
+        { label: "CONTINUE", action: "continue", disabled: !this.developerMode && this.continuesLeft <= 0 },
         { label: "RETRY", action: "retry", confirm: "ステージを最初からやり直しますか？" },
         { label: "RETRY FROM CHECKPOINT", action: "checkpoint", confirm: "最後のチェックポイントから再開しますか？" },
         { label: "TITLE", action: "title", confirm: "タイトルへ戻りますか？" },
@@ -5737,7 +6059,7 @@
       }
       if (key === "Escape") {
         this.audio.playSE("menu_cancel");
-        this.returnToTitle();
+        this.finishRun(() => this.returnToTitle(), false);
       }
       if (key === "z" || key === "Z" || key === " " || key === "Enter") this.activateGameOverItem();
     }
@@ -5761,16 +6083,21 @@
     executeGameOverAction(action) {
       this.gameOverMenu.confirm = null;
       if (action === "continue") this.continueFromCheckpoint();
-      if (action === "retry") this.start(false, false, this.currentStageId);
-      if (action === "checkpoint") this.start(true, true, this.currentStageId);
-      if (action === "title") this.returnToTitle();
+      if (action === "retry") this.finishRun(() => this.start(false, false, this.currentStageId), false);
+      if (action === "checkpoint") {
+        this.rankingEligible = false;
+        this.start(true, true, this.currentStageId);
+      }
+      if (action === "title") this.finishRun(() => this.returnToTitle(), false);
     }
 
     continueFromCheckpoint() {
-      if (this.continuesLeft <= 0) return;
-      this.continuesLeft -= 1;
-      this.continueCount += 1;
-      this.score.reduceForContinue();
+      if (!this.developerMode && this.continuesLeft <= 0) return;
+      if (!this.developerMode) {
+        this.continuesLeft -= 1;
+        this.continueCount += 1;
+        this.rankingEligible = false;
+      }
       if (!this.resumeInPlaceAfterContinue()) {
         this.start(true, true);
       }
@@ -5824,8 +6151,16 @@
         this.leaveClearScreen();
         return true;
       }
+      if (this.state.mode === "nameEntry") {
+        const pos = this.canvasPoint(e);
+        return this.nameEntry.handleTap(pos.x, pos.y);
+      }
       if (this.state.mode !== "title" && this.state.mode !== "paused" && this.state.mode !== "gameover") return false;
       const pos = this.canvasPoint(e);
+      if (this.state.mode === "title" && this.titlePanel === "ranking") {
+        this.titlePanel = "main";
+        return true;
+      }
       if (this.state.mode === "title" && this.titlePanel === "main" && pos.y >= 644 && pos.y <= 682) {
         this.changeDifficulty(pos.x < W / 2 ? -1 : 1);
         this.audio.playSE("menu_move");
@@ -5854,7 +6189,10 @@
           this.activateTitleItem();
         }
       } else if (this.state.mode === "paused") {
-        if (this.pauseOptionsOpen) {
+        if (this.developerOpen) {
+          this.getDeveloperMenu().index = hit;
+          this.activateDeveloperItem();
+        } else if (this.pauseOptionsOpen) {
           this.optionsMenu.index = hit;
           const action = this.optionsMenu.selected()?.action;
           if (action === "bgm" || action === "se" || action === "speed") this.adjustOption(pos.x < W / 2 ? -1 : 1);
@@ -5906,11 +6244,12 @@
               ? 360
               : this.titlePanel === "character"
                 ? 390
-                : 300)
-        : (this.pauseOptionsOpen ? 330 : 345);
+                : 265)
+        : (this.developerOpen ? 174 : this.pauseOptionsOpen ? 330 : 345);
+      const step = this.developerOpen ? 42 : 48;
       for (let i = 0; i < menu.items.length; i += 1) {
-        const top = startY + i * 48;
-        if (y >= top && y <= top + 38) return i;
+        const top = startY + i * step;
+        if (y >= top && y <= top + (this.developerOpen ? 34 : 38)) return i;
       }
       return null;
     }
@@ -5920,10 +6259,10 @@
         if (this.titlePanel === "options") return this.optionsMenu;
         if (this.titlePanel === "stage") return this.stageSelectMenu;
         if (this.titlePanel === "character") return this.characterMenu;
-        if (this.titlePanel === "ex") return null;
+        if (this.titlePanel === "ex" || this.titlePanel === "ranking") return null;
         return this.titleMenu;
       }
-      if (this.state.mode === "paused") return this.pauseOptionsOpen ? this.optionsMenu : this.pauseMenu;
+      if (this.state.mode === "paused") return this.developerOpen ? this.getDeveloperMenu() : this.pauseOptionsOpen ? this.optionsMenu : this.pauseMenu;
       if (this.state.mode === "gameover") return this.gameOverMenu;
       return null;
     }
@@ -5986,8 +6325,13 @@
         return;
       }
 
-      if (this.state.mode === "title") {
-        const titleMenu = this.titlePanel === "options"
+      if (this.state.mode === "nameEntry") {
+        if (justPressed(0)) this.nameEntry.confirm();
+        if (justPressed(1)) this.nameEntry.cancel();
+      } else if (this.state.mode === "title") {
+        const titleMenu = this.titlePanel === "ranking" || this.titlePanel === "ex"
+          ? null
+          : this.titlePanel === "options"
           ? this.optionsMenu
           : this.titlePanel === "stage"
             ? this.stageSelectMenu
@@ -5996,7 +6340,8 @@
               : this.titleMenu;
         this.handleGamepadMenu(buttons, justPressed, axisX, axisY, titleMenu);
         if (justPressed(0)) {
-          if (this.titlePanel === "options") this.activateOptionItem();
+          if (this.titlePanel === "ranking") this.titlePanel = "main";
+          else if (this.titlePanel === "options") this.activateOptionItem();
           else if (this.titlePanel === "stage") this.activateStageSelectItem();
           else if (this.titlePanel === "character") this.activateCharacterItem();
           else if (this.titlePanel === "ex") this.titlePanel = "stage";
@@ -6004,6 +6349,7 @@
         }
         if (justPressed(1)) {
           if (this.titlePanel === "options") this.closeOptions();
+          else if (this.titlePanel === "ranking") this.titlePanel = "main";
           else if (this.titlePanel === "ex") this.titlePanel = "stage";
           else {
             this.audio.playSE("menu_cancel");
@@ -6011,14 +6357,18 @@
           }
         }
       } else if (this.state.mode === "paused") {
-        const pauseActiveMenu = this.pauseOptionsOpen ? this.optionsMenu : this.pauseMenu;
+        const pauseActiveMenu = this.developerOpen ? this.getDeveloperMenu() : this.pauseOptionsOpen ? this.optionsMenu : this.pauseMenu;
         this.handleGamepadMenu(buttons, justPressed, axisX, axisY, pauseActiveMenu);
         if (justPressed(0)) {
-          if (this.pauseOptionsOpen) this.activateOptionItem();
+          if (this.developerOpen) this.activateDeveloperItem();
+          else if (this.pauseOptionsOpen) this.activateOptionItem();
           else this.activatePauseItem();
         }
         if (justPressed(1) || justPressed(8) || justPressed(9)) {
-          if (this.pauseOptionsOpen) this.pauseOptionsOpen = false;
+          if (this.developerOpen) {
+            if (this.developerPanel === "main") this.developerOpen = false;
+            else this.developerPanel = "main";
+          } else if (this.pauseOptionsOpen) this.pauseOptionsOpen = false;
           else if (this.pauseMenu.confirm) this.pauseMenu.confirm = null;
           else this.resumeFromPause();
         }
@@ -6027,7 +6377,7 @@
         if (justPressed(0)) this.activateGameOverItem();
         if (justPressed(1)) {
           if (this.gameOverMenu.confirm) this.gameOverMenu.confirm = null;
-          else this.returnToTitle();
+          else this.finishRun(() => this.returnToTitle(), false);
         }
       } else if (this.state.mode === "clear") {
         if (justPressed(0) || justPressed(1)) this.leaveClearScreen();
@@ -6074,6 +6424,13 @@
     }
 
     loop = (time) => {
+      this.fpsFrames += 1;
+      if (!this.fpsLastTime) this.fpsLastTime = time;
+      if (time - this.fpsLastTime >= 500) {
+        this.fps = Math.round(this.fpsFrames * 1000 / Math.max(1, time - this.fpsLastTime));
+        this.fpsFrames = 0;
+        this.fpsLastTime = time;
+      }
       if (!this.lastTime) this.lastTime = time;
       const elapsedSeconds = Math.min(0.1, Math.max(0, (time - this.lastTime) / 1000));
       this.lastTime = time;
@@ -6101,7 +6458,7 @@
         this.particles = this.particles.filter((p) => p.life > 0);
         return;
       }
-      if (this.state.mode === "paused" || this.state.mode === "gameover" || this.state.mode === "title") return;
+      if (this.state.mode === "paused" || this.state.mode === "gameover" || this.state.mode === "title" || this.state.mode === "nameEntry") return;
       if (this.state.mode === "clear" && this.clearAdvanceTimer > 0) {
         this.clearAdvanceTimer -= 1;
         if (this.clearAdvanceTimer === 0) {
@@ -6119,7 +6476,7 @@
     }
 
     updateStage(deltaTime = FIXED_STEP_SECONDS) {
-      spellButton.disabled = this.playerSpellCount <= 0;
+      spellButton.disabled = !this.developerMode && this.playerSpellCount <= 0;
       this.state.time += 1;
       this.checkpoints.updateByTime(this.state.time);
       this.enemyBulletsSpawnedFrame = 0;
@@ -6186,8 +6543,8 @@
 
     activatePlayerSpell() {
       if (this.state.mode !== "stage" || this.dialogue.active) return;
-      if (this.playerSpellCount <= 0 || this.playerSpellActive || this.playerSpellCooldown > 0) return;
-      this.playerSpellCount -= 1;
+      if ((!this.developerMode && this.playerSpellCount <= 0) || this.playerSpellActive || this.playerSpellCooldown > 0) return;
+      if (!this.developerMode) this.playerSpellCount -= 1;
       const config = this.survivorConfig;
       const ide = config.ide;
       this.playerSpellTimer = ide?.duration || 165;
@@ -6797,7 +7154,7 @@
       }
     }
 
-    saveCurrentRun(cleared) {
+    saveCurrentRun(cleared, recordScore = true) {
       const stageScore = Math.max(0, this.score.value - this.stageStartScore);
       this.save.saveRun(
         this.difficulty.current,
@@ -6806,8 +7163,29 @@
         this.checkpoints.current,
         cleared,
         this.continueCount,
-        this.score.value
+        this.score.value,
+        recordScore && this.rankingEligible && this.continueCount === 0 && !this.developerMode
       );
+    }
+
+    rankingRecord() {
+      return {
+        score: this.score.value,
+        difficulty: this.difficulty.current,
+        character: this.survivorConfig.name,
+        continueCount: this.continueCount,
+        stage: this.currentStageId,
+      };
+    }
+
+    finishRun(onComplete, cleared = false) {
+      this.saveCurrentRun(cleared, true);
+      if (this.rankingSubmitted || !this.rankingEligible || this.continueCount !== 0 || this.developerMode) {
+        onComplete?.();
+        return false;
+      }
+      this.rankingSubmitted = true;
+      return this.nameEntry.start(this.rankingRecord(), onComplete);
     }
 
     defeatBoss() {
@@ -6899,10 +7277,12 @@
         );
       }
       if (this.state.mode === "ending") this.ending.draw(ctx);
+      if (this.state.mode === "nameEntry") this.nameEntry.draw(ctx);
       this.drawBossSpellCutin();
       this.drawPlayerSpellCutin();
       this.drawPowerUpFlash();
       this.dialogue.draw(ctx);
+      if (this.developerMode && this.debugVisible) this.drawDeveloperOverlay();
     }
 
     drawPowerUpFlash() {
@@ -7347,13 +7727,13 @@
       ctx.textAlign = "center";
       ctx.fillText(`${this.state.stageName} ${this.difficulty.label}`, W / 2, 24);
       ctx.textAlign = "right";
-      ctx.fillText(`SLIPPER x ${this.life.lives}`, W - 12, 24);
+      ctx.fillText(`SLIPPER x ${this.developerMode ? "∞" : this.life.lives}`, W - 12, 24);
       ctx.fillStyle = "#fff0a8";
       ctx.font = "700 13px system-ui, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(`${this.specialLabel} x ${this.playerSpellCount}`, 12, 55);
+      ctx.fillText(`${this.specialLabel} x ${this.developerMode ? "∞" : this.playerSpellCount}`, 12, 55);
       ctx.textAlign = "right";
-      ctx.fillText(`CP ${this.checkpoints.current}  CONT ${this.continueCount}`, W - 12, 55);
+      ctx.fillText(`CP ${this.checkpoints.current}  CONT ${this.developerMode ? "∞" : this.continueCount}`, W - 12, 55);
       ctx.fillStyle = "#e8c8ff";
       ctx.fillText(`GRAZE ${this.grazeCount}`, W - 12, 74);
 
@@ -7488,7 +7868,31 @@
         ctx.fillText(this.boss.name, W / 2, 210);
       }
 
-      if (this.debugVisible) this.drawDebugOverlay();
+    }
+
+    drawDeveloperOverlay() {
+      const phase = this.currentStageId === "stage5"
+        ? `${this.finalStageDirector.phase}${this.boss?.cardIndex !== undefined ? `/${this.boss.cardIndex + 1}` : ""}`
+        : `${this.boss?.cardIndex !== undefined ? this.boss.cardIndex + 1 : "-"}`;
+      const rows = [
+        "DEBUG MODE",
+        "INVINCIBLE",
+        "INFINITE SPELL / LIFE",
+        `STAGE ${this.currentStageId.replace("stage", "")}`,
+        `PHASE ${phase}`,
+        `BOSS HP ${Math.ceil(this.boss?.hp || 0)}`,
+        `POWER ${this.power.value}/${this.power.max}`,
+        `ENEMY ${this.enemies.length} / BULLET ${this.enemyBullets.length}`,
+        `PLAYER ${Math.round(this.player.x)},${Math.round(this.player.y)}`,
+        `FPS ${this.fps}`,
+        "F8 OVERLAY / F9 CLEAR",
+      ];
+      ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
+      ctx.fillRect(W - 218, 86, 210, rows.length * 17 + 14);
+      ctx.fillStyle = "#ffda75";
+      ctx.font = "11px ui-monospace, Consolas, monospace";
+      ctx.textAlign = "left";
+      rows.forEach((row, index) => ctx.fillText(row, W - 208, 104 + index * 17));
     }
 
     drawDebugOverlay() {
@@ -7575,7 +7979,11 @@
         ctx.fillText("決定 / Esc / B で戻る", W / 2, 540);
         return;
       }
-      this.drawMenu(this.titleMenu, 300, (item) => {
+      if (this.titlePanel === "ranking") {
+        this.drawRanking();
+        return;
+      }
+      this.drawMenu(this.titleMenu, 265, (item) => {
         if (item.action === "fullscreen") return this.fullscreen.label();
         return item.label;
       });
@@ -7625,6 +8033,34 @@
       ctx.fillText("Esc / B で戻る", W / 2, 670);
     }
 
+    drawRanking() {
+      ctx.fillStyle = "#fff0a8";
+      ctx.font = "900 28px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("LOCAL RANKING", W / 2, 300);
+      const entries = this.leaderboard.entries;
+      ctx.font = "700 13px ui-monospace, monospace";
+      ctx.textAlign = "left";
+      if (entries.length === 0) {
+        ctx.fillStyle = "rgba(247,255,240,0.72)";
+        ctx.textAlign = "center";
+        ctx.fillText("NO SCORE", W / 2, 390);
+      } else {
+        entries.forEach((entry, index) => {
+          const y = 340 + index * 34;
+          ctx.fillStyle = index < 3 ? "#fff0a8" : "#eef7e8";
+          ctx.fillText(`${String(index + 1).padStart(2, "0")}  ${String(entry.name).padEnd(8, " ").slice(0, 8)}`, 38, y);
+          ctx.textAlign = "right";
+          ctx.fillText(`${entry.score}  ${String(entry.difficulty || "").toUpperCase()}  ${entry.character || "-"}`, W - 28, y);
+          ctx.textAlign = "left";
+        });
+      }
+      ctx.fillStyle = "rgba(247,255,240,0.65)";
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("CONTINUE 0 のランのみ登録 / Esc・Bで戻る", W / 2, 718);
+    }
+
     formatVolumeOption(label, value) {
       const percent = Math.round(value * 100);
       const filled = Math.round(percent / 10);
@@ -7656,6 +8092,10 @@
       ctx.fillStyle = "rgba(0, 0, 0, 0.68)";
       ctx.fillRect(0, 0, W, H);
       ctx.textAlign = "center";
+      if (this.developerOpen) {
+        this.drawDeveloperMenu();
+        return;
+      }
       ctx.fillStyle = "#f6fff1";
       ctx.font = "900 34px system-ui, sans-serif";
       ctx.fillText("PAUSE", W / 2, 280);
@@ -7670,6 +8110,24 @@
       this.drawConfirm(this.pauseMenu);
     }
 
+    drawDeveloperMenu() {
+      const menu = this.getDeveloperMenu();
+      ctx.fillStyle = "#ffcf66";
+      ctx.font = "900 24px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(`DEVELOPER / ${this.developerPanel.toUpperCase()}`, W / 2, 145);
+      menu.items.forEach((item, index) => {
+        const y = 174 + index * 42;
+        ctx.fillStyle = index === menu.index ? "rgba(255, 207, 102, 0.24)" : "rgba(0, 0, 0, 0.48)";
+        ctx.fillRect(62, y, W - 124, 34);
+        ctx.strokeStyle = index === menu.index ? "#ffcf66" : "rgba(255,255,255,0.16)";
+        ctx.strokeRect(62, y, W - 124, 34);
+        ctx.fillStyle = "#f7fff0";
+        ctx.font = `800 ${item.label.length > 21 ? 12 : 14}px system-ui, sans-serif`;
+        ctx.fillText(item.label, W / 2, y + 23);
+      });
+    }
+
     drawGameOverMenu() {
       ctx.fillStyle = "rgba(5, 13, 12, 0.76)";
       ctx.fillRect(0, 0, W, H);
@@ -7679,7 +8137,7 @@
       ctx.fillText("GAME OVER", W / 2, 265);
       ctx.fillStyle = "#eaffdf";
       ctx.font = "15px system-ui, sans-serif";
-      ctx.fillText(`CONTINUE ${this.continuesLeft} / SCORE ${this.score.value}`, W / 2, 305);
+      ctx.fillText(`CONTINUE ${this.developerMode ? "∞" : this.continuesLeft} / SCORE ${this.score.value}`, W / 2, 305);
       this.drawMenu(this.gameOverMenu, 345);
       this.drawConfirm(this.gameOverMenu);
     }
@@ -7756,8 +8214,8 @@
     if (game.state.mode === "title") game.ensureTitleBGM();
   });
   const debugParams = new URLSearchParams(location.search);
-  if (debugParams.has("debug")) {
-    window.__POLLEN_GAME__ = game;
+  if (DEVELOPER_BUILD || TEST_BUILD) window.__POLLEN_GAME__ = game;
+  if (DEVELOPER_BUILD) {
     const requestedStage = debugParams.get("stage");
     const stageId = requestedStage ? (requestedStage.startsWith("stage") ? requestedStage : `stage${requestedStage}`) : null;
     const phase = Number.parseInt(debugParams.get("phase") || "0", 10) || 0;

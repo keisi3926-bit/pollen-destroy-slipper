@@ -3,37 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>花粉滅殺サバイバー</title>
+  <title>花粉滅殺サバイバー - Developer</title>
   <meta name="theme-color" content="#17261d">
-  <meta name="application-name" content="花粉滅殺サバイバー">
-  <meta property="og:title" content="花粉滅殺サバイバー">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://keisi3926-bit.github.io/pollen-destroy-survivor/">
-  <meta property="og:image" content="https://keisi3926-bit.github.io/pollen-destroy-survivor/assets/brand/keishis-entrance-logo.png">
-  <link rel="canonical" href="https://keisi3926-bit.github.io/pollen-destroy-survivor/">
-  <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/pollen-survivor-192.png">
   <link rel="apple-touch-icon" href="assets/icons/pollen-survivor-192.png">
   <link rel="stylesheet" href="style.css?v=0.42.0">
 </head>
-<body class="brand-splash-active">
+<body class="brand-splash-active developer-build">
   <div id="brandSplash" class="brand-splash" aria-hidden="true">
     <img id="brandSplashLogo" class="brand-splash__logo" alt="">
   </div>
-  <main class="game-shell" aria-label="花粉滅殺サバイバー">
+  <main class="game-shell" aria-label="花粉滅殺サバイバー 開発専用">
     <section class="update-panel" aria-label="アップデート情報">
       <div class="update-panel__head">
-        <div>
-          <p class="update-panel__label">UPDATE</p>
-          <h1>花粉滅殺サバイバー</h1>
-        </div>
+        <div><p class="update-panel__label">DEVELOPER</p><h1>花粉滅殺サバイバー</h1></div>
         <button id="updateToggle" class="update-panel__toggle" type="button" aria-expanded="true">INFO</button>
       </div>
       <div id="updateBody" class="update-panel__body">
-        <div class="update-panel__row">
-          <span id="appVersion">v--</span>
-          <span id="updateStatus">更新情報を確認中</span>
-        </div>
+        <div class="update-panel__row"><span id="appVersion">v--</span><span id="updateStatus">開発専用モード</span></div>
         <ul id="updateList" class="update-list"></ul>
         <div class="update-panel__actions">
           <button id="checkUpdateButton" type="button">更新確認</button>
@@ -43,10 +30,11 @@
     </section>
     <button id="menuButton" class="menu-button" type="button" aria-label="メニュー">MENU</button>
     <canvas id="gameCanvas" width="450" height="800"></canvas>
-    <button id="spellButton" class="spell-button" type="button" aria-label="極履技">SPELL</button>
+    <button id="spellButton" class="spell-button" type="button" aria-label="特殊技">SPELL</button>
     <button id="slowButton" class="slow-button" type="button" aria-label="低速モード">LOW<br>SPEED</button>
     <input id="nameEntryInput" class="name-entry-input" type="text" maxlength="8" autocomplete="off" autocapitalize="characters" aria-label="ランキング名入力">
   </main>
+  <script>window.__SOLE_DEBUG__ = true;</script>
   <script src="brand-splash.js?v=0.34.0"></script>
   <script src="game.js?v=0.42.0"></script>
 </body>

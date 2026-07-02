@@ -1,7 +1,8 @@
-const CACHE_VERSION = "pollen-destroy-survivor-v0.41.1";
+const CACHE_VERSION = "pollen-destroy-survivor-v0.42.0";
 const APP_SHELL = [
   "./",
   "index.html",
+  "sole.html",
   "style.css",
   "manifest.webmanifest",
   "brand-splash.js",

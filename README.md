@@ -247,16 +247,29 @@ Ending debug URLs:
 
 Development entry points:
 
-```text
-?debug=1&stage=5&final=start
-?debug=1&stage=5&final=rush1  (rush1 through rush4)
-?debug=1&stage=5&final=taikun1  (taikun1 through taikun5)
-?debug=1&stage=5&final=daijin
-?debug=1&stage=5&final=abyss
-?debug=1&stage=5&final=clear
-```
+## Developer build
 
-On a debug URL only: `F6` reduces the current boss HP to 1, `F7` skips the current phase, and `F8` clears bullets and special hazards.
+Development tools are available only from `sole.html`. The public `index.html`
+does not enable debug mode or expose the game instance.
+
+- `F8`: toggle the developer overlay
+- `F6`: reduce the current boss HP to 1
+- `F7`: skip the current boss phase
+- `F9`: clear enemies, bullets, lasers, and stage hazards
+- Pause menu `Developer`: jump to a stage, boss, or Stage5 boss phase; unlock
+  Shion/EX; maximize power/special; set test score; or clear enemies
+
+The developer build starts with invincibility, infinite lives, infinite
+continues, infinite special attacks, hitbox display, FPS, and runtime state
+diagnostics enabled.
+
+## Local ranking
+
+`RANKING` on the title screen displays the ten best local no-continue runs.
+Qualifying clear or game-over runs open `NAME ENTRY` and save name, score,
+difficulty, character, continue count, stage, and timestamp to localStorage.
+Continued runs remain playable but are excluded from ranking and high-score
+updates so continuing cannot inflate a stored score.
 
 ## Stage2 BGM
 

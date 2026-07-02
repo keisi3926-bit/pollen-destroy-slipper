@@ -56,6 +56,32 @@ button {
   touch-action: none;
 }
 
+.name-entry-input {
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 20;
+  width: min(280px, calc(100vw - 40px));
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 240, 168, 0.65);
+  border-radius: 0;
+  background: rgba(4, 10, 8, 0.96);
+  color: #fff4b8;
+  font: 800 20px/1 system-ui, sans-serif;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.name-entry-input:not(.is-active) {
+  width: 1px;
+  min-height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .game-shell {
   position: fixed;
   inset: 0;

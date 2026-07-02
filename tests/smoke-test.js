@@ -56,6 +56,8 @@ function createElement(id = "") {
     getBoundingClientRect() { return { left: 0, top: 0, width: 450, height: 800 }; },
     getContext() { return drawingContext; },
     setPointerCapture() {},
+    focus() { this.focused = true; },
+    blur() { this.focused = false; },
   };
 }
 
@@ -72,6 +74,7 @@ const elements = new Map();
   "updateList",
   "checkUpdateButton",
   "reloadUpdateButton",
+  "nameEntryInput",
 ].forEach((id) => elements.set(id, createElement(id)));
 const updatePanel = createElement("updatePanel");
 
@@ -145,6 +148,7 @@ sandbox.document.documentElement.requestFullscreen = () => {
   return Promise.resolve();
 };
 sandbox.window = {
+  __POLLEN_TEST__: true,
   addEventListener() {},
   matchMedia: () => ({ matches: true }),
 };
@@ -152,6 +156,10 @@ sandbox.window.window = sandbox.window;
 
 const source = fs.readFileSync(path.join(__dirname, "..", "game.js"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
+const indexSource = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const soleSource = fs.readFileSync(path.join(__dirname, "..", "sole.html"), "utf8");
+assert.doesNotMatch(indexSource, /__SOLE_DEBUG__/, "index.html must never grant developer privileges");
+assert.match(soleSource, /window\.__SOLE_DEBUG__\s*=\s*true/, "sole.html must explicitly grant developer privileges");
 vm.runInNewContext(source, sandbox, { filename: "game.js" });
 
 const game = sandbox.window.__POLLEN_GAME__;
@@ -169,8 +177,8 @@ game.audio.setMute(false);
 assert.equal(game.audio.currentBGM.volume, 0.55, "unmute should restore the saved BGM volume");
 assert.equal(
   Array.from(game.titleMenu.items, (item) => item.label).join("|"),
-  "START GAME|STAGE SELECT|SURVIVOR SELECT|OPTIONS|FULLSCREEN|HOW TO PLAY|HIGH SCORE",
-  "title menu should expose Stage Select, Fullscreen and the existing entries"
+  "START GAME|STAGE SELECT|SURVIVOR SELECT|OPTIONS|FULLSCREEN|HOW TO PLAY|HIGH SCORE|RANKING",
+  "title menu should expose Ranking, Stage Select, Fullscreen and the existing entries"
 );
 assert.equal(game.fullscreen.supported, true, "fullscreen manager should detect the browser API");
 assert.equal(game.fullscreen.label(), "FULLSCREEN OFF", "fullscreen menu label should expose the current state");
@@ -627,6 +635,7 @@ game.dialogue.completeNow();
 assert.equal(game.dialogue.sceneName, "stage2_clear", "Stage2 defeat dialogue should lead to the short clear scene");
 game.dialogue.completeNow();
 assert.equal(game.state.mode, "clear", "Stage2 clear dialogue should finish on the clear result");
+game.rankingEligible = false;
 game.leaveClearScreen();
 assert.equal(game.state.mode, "title", "leaving Stage2 clear should return to the title state");
 assert.equal(game.titlePanel, "stage", "leaving Stage2 clear should open Stage Select");
@@ -644,7 +653,7 @@ game.syncFollowers();
 game.grazeCount = 234;
 game.grazeMilestoneIndex = 1;
 game.continuesLeft = 2;
-game.continueCount = 1;
+game.continueCount = 0;
 game.difficulty.set("hard");
 game.state.mode = "clear";
 game.clearAdvanceTimer = 1;
@@ -660,6 +669,7 @@ assert.equal(game.followers.length, 3, "arcade transition should rebuild followe
 assert.equal(game.grazeCount, 234, "arcade transition should preserve graze count");
 assert.equal(game.grazeMilestoneIndex, 1, "arcade transition should preserve graze milestone progress");
 assert.equal(game.continuesLeft, 2, "arcade transition should preserve continues");
+assert.equal(game.continueCount, 0, "arcade transition should preserve the no-continue ranking state");
 assert.equal(game.difficulty.current, "hard", "arcade transition should preserve difficulty");
 assert.equal(game.checkpoints.current, 0, "a new arcade stage should reset its checkpoint");
 assert.equal(game.stageStartScore, 54321, "Stage2 score accounting should begin at the carried total");
@@ -865,7 +875,10 @@ game.update();
 assert.equal(game.ending.phase, "allClear", "EX unlock should advance to ALL CLEAR");
 game.ending.timer = 1;
 game.update();
-assert.equal(game.state.mode, "title", "ending completion should return to title");
+assert.equal(game.state.mode, "nameEntry", "a qualifying ALL CLEAR should open NAME ENTRY");
+game.nameEntry.setValue("CLEAR");
+game.nameEntry.confirm();
+assert.equal(game.state.mode, "title", "confirming the clear score name should return to title");
 assert.equal(game.save.data.endingViewed, true, "ending completion should be saved");
 game.openCharacterSelect();
 game.characterMenu.index = 1;
@@ -932,9 +945,14 @@ assert.equal(game.playerSpellCount, 3, "practice mode should reset spell stock")
 assert.equal(game.power.value, 0, "practice mode should reset power");
 assert.equal(game.grazeCount, 0, "practice mode should reset graze");
 game.state.mode = "clear";
+game.rankingEligible = false;
 game.leaveClearScreen();
 assert.equal(game.titlePanel, "stage", "practice clear should return to Stage Select");
 
+assert.equal(game.developerMode, false, "normal test build must not enable sole developer privileges");
+assert.equal(game.beginDebugStage("stage4", 2), false, "normal mode must reject direct debug stage entry");
+game.developerMode = true;
+game.debugMode = true;
 assert.equal(game.beginDebugStage("stage4", 2), true, "debug entry should open Stage4 phase 2 directly");
 assert.equal(game.currentStageId, "stage4", "Stage4 debug entry should configure the requested stage");
 assert.equal(game.boss.cardIndex, 1, "Stage4 debug phase should use one-based phase numbers");
@@ -1003,6 +1021,8 @@ assert.equal(game.beginDebugStage("stage5", 0, "clear"), true, "final clear debu
 assert.equal(game.state.mode, "ending", "final clear debug entry should open the ending sequence");
 assert.equal(game.ending.phase, "silence", "final clear debug entry should preserve the ending lead-in");
 
+game.developerMode = false;
+game.debugMode = false;
 game.beginStageSelect("stage1");
 game.dialogue.active = false;
 game.state.time = game.currentStage.bossTime;
@@ -1016,6 +1036,8 @@ game.state.mode = "gameover";
 game.continuesLeft = 2;
 game.continueCount = 0;
 game.score.value = 10000;
+game.save.data.highScores[game.difficulty.current].stage1 = 0;
+const scoreBeforeContinue = game.score.value;
 game.continueFromCheckpoint();
 assert.equal(game.state.mode, "stage", "continue should resume the current play state");
 assert.equal(game.boss, continuedBoss, "continue should not recreate the boss fight");
@@ -1023,6 +1045,10 @@ assert.equal(game.boss.currentCard.hp, 123, "continue should preserve current bo
 assert.equal(game.boss.currentCard.failed, true, "continue should preserve failed bonus state for the current spell");
 assert.equal(game.continuesLeft, 1, "continue should consume one continue");
 assert.equal(game.continueCount, 1, "continue count should increase");
+assert.equal(game.score.value, scoreBeforeContinue, "continue must not add or subtract score");
+assert.equal(game.rankingEligible, false, "continued runs must be excluded from ranking");
+game.saveCurrentRun(false);
+assert.equal(game.save.data.highScores[game.difficulty.current].stage1, 0, "continued runs must not update stored high scores");
 assert.equal(game.power.value, game.power.max, "continue should revive with full power");
 assert.equal(game.life.lives, game.difficulty.config.initialLives, "continue should restore slipper stock without rewinding the boss");
 
@@ -1032,6 +1058,44 @@ game.startDialogue("scene_intro", () => { skippedDialogueCompleted = true; });
 assert.equal(game.dialogue.active, false, "skip-all mode should not open the dialogue overlay");
 assert.equal(skippedDialogueCompleted, true, "skip-all mode should still run progression callbacks");
 game.save.saveProgress({ dialogueMode: "show" });
+
+game.leaderboard.entries = [];
+assert.equal(game.leaderboard.qualifies(50000, 1), false, "continued runs must not qualify for ranking");
+assert.equal(game.leaderboard.qualifies(50000, 0), true, "zero-continue runs should qualify for an empty ranking");
+game.continueCount = 0;
+game.score.value = 543210;
+game.rankingEligible = true;
+let nameEntryCompleted = false;
+assert.equal(game.nameEntry.start(game.rankingRecord(), () => {
+  nameEntryCompleted = true;
+  game.state.mode = "stage";
+}), true, "qualifying score should open NAME ENTRY");
+game.nameEntry.setValue("CODEX");
+game.nameEntry.confirm();
+assert.equal(nameEntryCompleted, true, "name entry should resume its completion flow");
+assert.equal(game.leaderboard.entries[0].name, "CODEX", "ranking should save the entered name");
+assert.equal(game.leaderboard.entries[0].score, 543210, "ranking should save the final score");
+assert.equal(game.leaderboard.entries[0].continueCount, 0, "ranking should record zero continues");
+
+game.developerMode = true;
+game.debugMode = true;
+game.state.mode = "stage";
+const developerLives = game.life.lives;
+game.player.invincible = 0;
+game.player.hit(game);
+assert.equal(game.life.lives, developerLives, "sole developer mode should make the player invincible");
+game.playerSpellCount = 2;
+game.playerSpellCooldown = 0;
+game.playerSpellActive = false;
+game.activatePlayerSpell();
+assert.equal(game.playerSpellCount, 2, "sole developer mode should not consume special stock");
+game.endPlayerSpell();
+game.openPauseMenu();
+assert.ok(game.pauseMenu.items.some((item) => item.action === "developer"), "sole pause menu should expose Developer");
+game.openDeveloperMenu();
+assert.ok(game.developerMenu.items.some((item) => item.action === "phasePanel"), "Developer menu should expose boss phase selection");
+game.developerOpen = false;
+game.resumeFromPause();
 
 assert.equal(game.debugEnding("credits"), true, "credits debug entry should be available");
 assert.equal(game.ending.phase, "credits", "credits debug entry should jump to scrolling credits");
